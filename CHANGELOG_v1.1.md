@@ -7,7 +7,7 @@
 - Detect changes to the visible IPv4 DNS configuration and notify through the system tray when a change appears external.
 - Check DNS resolution periodically; notify after three consecutive failures and when resolution recovers.
 - Notify when applying a DNS profile fails.
-- Added tray commands to view recent profiles, toggle Windows startup, and toggle DNS-change notifications.
+- Added tray commands to view recent profiles, toggle Windows startup through an elevated Task Scheduler logon task, and toggle DNS-change notifications.
 - Warn once when IPv6 DNS servers are configured, because this app only changes IPv4 DNS.
 - Added the .NET Framework assembly reference required for JSON serialization.
 
@@ -16,3 +16,4 @@
 - Compile with the Windows .NET Framework C# compiler.
 - Exercise profile apply/disable, external DNS change detection, startup toggle, settings persistence, IPv6 warning, and tray notifications on Windows.
 - Verify DNS health notifications under captive portals and transient network failures.
+- Verify elevated Task Scheduler autostart after sign-in and removal when toggled off.
