@@ -15,6 +15,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 
@@ -46,12 +47,16 @@ namespace HbAiSmartDnsCustom
         [DataMember] public List<string> RecentProfiles { get; set; }
         [DataMember] public bool NotifyDnsChanges { get; set; }
         [DataMember] public bool WarnedAboutIpv6 { get; set; }
+        [DataMember] public int HotkeyModifiers { get; set; }
+        [DataMember] public int HotkeyKey { get; set; }
 
         public AppSettings()
         {
             RecentProfiles = new List<string>();
             NotifyDnsChanges = true;
             WarnedAboutIpv6 = false;
+            HotkeyModifiers = 0x0001 | 0x0002;
+            HotkeyKey = (int)Keys.D;
         }
 
         public static AppSettings Load(string path)
@@ -69,6 +74,8 @@ namespace HbAiSmartDnsCustom
                             if (loaded.RecentProfiles == null) loaded.RecentProfiles = new List<string>();
                             loaded.RecentProfiles = loaded.RecentProfiles.Where(x => !String.IsNullOrWhiteSpace(x))
                                 .Distinct(StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+                            if (loaded.HotkeyModifiers == 0) loaded.HotkeyModifiers = 0x0001 | 0x0002;
+                            if (loaded.HotkeyKey == 0) loaded.HotkeyKey = (int)Keys.D;
                             return loaded;
                         }
                     }
@@ -346,6 +353,14 @@ namespace HbAiSmartDnsCustom
 
     class MainForm : Form
     {
+        const int HotkeyId = 0x4842;
+        const int WmHotkey = 0x0312;
+        const uint ModAlt = 0x0001, ModControl = 0x0002, ModShift = 0x0004, ModNoRepeat = 0x4000;
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
         readonly Color bg = Color.FromArgb(7,7,11), violet = Color.FromArgb(140,112,255), yellow = Color.FromArgb(255,224,102), muted = Color.FromArgb(141,141,154);
         readonly string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HB AI Smart DNS");
         readonly string dataFile;
@@ -360,6 +375,14 @@ namespace HbAiSmartDnsCustom
         ComboBox profileBox;
         Label status, addressLabel, infoLabel;
         Button toggle, add, edit, remove, site, reload, themeButton, flushButton, lookupButton;
+        TabControl mainTabs;
+        TabPage dnsTab, settingsTab;
+        TextBox hotkeyBox;
+        Button saveHotkeyButton, resetHotkeyButton;
+        Label hotkeyStatusLabel;
+        int pendingHotkeyModifiers, pendingHotkeyKey;
+        int activeHotkeyModifiers, activeHotkeyKey;
+        bool hotkeyRegistered;
         Label currentDnsLabel;
         NotifyIcon tray;
         ContextMenuStrip trayMenu;
@@ -375,8 +398,8 @@ namespace HbAiSmartDnsCustom
             Text = "HasladDNS v1.1";
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(570, 650);
-            MinimumSize = new Size(570, 650); MaximumSize = new Size(570, 650);
+            ClientSize = new Size(570, 710);
+            MinimumSize = new Size(570, 710); MaximumSize = new Size(570, 710);
             Font = new Font("Segoe UI", 9F);
             ThemeSettings.Load(dataDir);
             BackColor = ThemeSettings.Background; ForeColor = ThemeSettings.Foreground;
@@ -431,7 +454,134 @@ namespace HbAiSmartDnsCustom
                 var warn = new Label { Text="Внимание: запусти программу от имени администратора.", Location=new Point(25,610), AutoSize=true, ForeColor=yellow };
                 Controls.Add(warn);
             }
+            // Move the existing interface into the first tab without changing its controls or behavior.
+            var oldControls = Controls.Cast<Control>().ToArray();
+            mainTabs = new TabControl { Location = new Point(10, 10), Size = new Size(550, 680), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+            dnsTab = new TabPage("DNS-профили");
+            settingsTab = new TabPage("Настройки");
+            foreach (Control control in oldControls) dnsTab.Controls.Add(control);
+            mainTabs.TabPages.Add(dnsTab);
+            mainTabs.TabPages.Add(settingsTab);
+            Controls.Add(mainTabs);
+            BuildSettingsTab();
             RefreshProfileBox();
+        }
+
+        void BuildSettingsTab()
+        {
+            pendingHotkeyModifiers = settings.HotkeyModifiers;
+            pendingHotkeyKey = settings.HotkeyKey;
+            activeHotkeyModifiers = settings.HotkeyModifiers;
+            activeHotkeyKey = settings.HotkeyKey;
+
+            settingsTab.Padding = new Padding(12);
+            var heading = new Label { Text = "Глобальная горячая клавиша", Font = new Font("Segoe UI", 14, FontStyle.Bold), Location = new Point(18, 20), AutoSize = true };
+            var description = new Label { Text = "Работает, даже когда HasladDNS свёрнут в системный трей.\r\nПереключает DNS так же, как основная кнопка приложения.", Location = new Point(20, 58), Size = new Size(480, 44), ForeColor = ThemeSettings.Muted };
+            var label = new Label { Text = "Сочетание клавиш", Location = new Point(20, 120), AutoSize = true };
+            hotkeyBox = new TextBox { Location = new Point(20, 146), Size = new Size(270, 30), ReadOnly = true, TabStop = true, Font = new Font("Segoe UI", 11F), Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey) };
+            hotkeyBox.Click += (sender, e) => { hotkeyStatusLabel.Text = "Нажми сочетание клавиш на клавиатуре."; hotkeyBox.Focus(); };
+            hotkeyBox.KeyDown += (sender, e) =>
+            {
+                e.SuppressKeyPress = true; e.Handled = true;
+                if (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.Menu || e.KeyCode == Keys.ShiftKey || e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin) return;
+                int mods = 0;
+                if (e.Control) mods |= (int)ModControl;
+                if (e.Alt) mods |= (int)ModAlt;
+                if (e.Shift) mods |= (int)ModShift;
+                if (mods == 0) { hotkeyStatusLabel.Text = "Сочетание должно включать Ctrl, Alt или Shift."; return; }
+                pendingHotkeyModifiers = mods;
+                pendingHotkeyKey = (int)e.KeyCode;
+                hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
+                hotkeyStatusLabel.Text = "Нажми «Сохранить сочетание», чтобы применить.";
+            };
+            saveHotkeyButton = Btn("Сохранить сочетание", 20, 192, 190, 36);
+            saveHotkeyButton.Click += (sender, e) => SaveHotkey();
+            resetHotkeyButton = Btn("По умолчанию", 220, 192, 150, 36);
+            resetHotkeyButton.Click += (sender, e) =>
+            {
+                pendingHotkeyModifiers = (int)(ModControl | ModAlt);
+                pendingHotkeyKey = (int)Keys.D;
+                hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
+                hotkeyStatusLabel.Text = "Выбрано Ctrl + Alt + D. Нажми «Сохранить сочетание».";
+            };
+            hotkeyStatusLabel = new Label { Text = "Текущее сочетание: " + FormatHotkey(activeHotkeyModifiers, activeHotkeyKey), Location = new Point(20, 246), Size = new Size(490, 48), ForeColor = ThemeSettings.Muted };
+            var note = new Label { Text = "Если сочетание занято, HasladDNS сообщит об этом и сохранит прежнее.\r\nИзменения сохраняются для следующих запусков.", Location = new Point(20, 304), Size = new Size(490, 44), ForeColor = ThemeSettings.Muted };
+            settingsTab.Controls.Add(heading);
+            settingsTab.Controls.Add(description);
+            settingsTab.Controls.Add(label);
+            settingsTab.Controls.Add(hotkeyBox);
+            settingsTab.Controls.Add(saveHotkeyButton);
+            settingsTab.Controls.Add(resetHotkeyButton);
+            settingsTab.Controls.Add(hotkeyStatusLabel);
+            settingsTab.Controls.Add(note);
+            ThemeSettings.Apply(settingsTab);
+        }
+
+        static string FormatHotkey(int modifiers, int key)
+        {
+            var parts = new List<string>();
+            if ((modifiers & (int)ModControl) != 0) parts.Add("Ctrl");
+            if ((modifiers & (int)ModAlt) != 0) parts.Add("Alt");
+            if ((modifiers & (int)ModShift) != 0) parts.Add("Shift");
+            parts.Add(((Keys)key).ToString());
+            return String.Join(" + ", parts.ToArray());
+        }
+
+        void SaveHotkey()
+        {
+            if (pendingHotkeyModifiers == activeHotkeyModifiers && pendingHotkeyKey == activeHotkeyKey)
+            {
+                settings.HotkeyModifiers = activeHotkeyModifiers;
+                settings.HotkeyKey = activeHotkeyKey;
+                settings.Save(settingsFile);
+                hotkeyStatusLabel.Text = "Сохранено: " + FormatHotkey(activeHotkeyModifiers, activeHotkeyKey);
+                return;
+            }
+
+            if (hotkeyRegistered) { UnregisterHotKey(Handle, HotkeyId); hotkeyRegistered = false; }
+            bool registered = RegisterHotKey(Handle, HotkeyId, (uint)pendingHotkeyModifiers | ModNoRepeat, (uint)pendingHotkeyKey);
+            if (!registered)
+            {
+                int error = Marshal.GetLastWin32Error();
+                bool restored = RegisterHotKey(Handle, HotkeyId, (uint)activeHotkeyModifiers | ModNoRepeat, (uint)activeHotkeyKey);
+                hotkeyRegistered = restored;
+                hotkeyBox.Text = FormatHotkey(activeHotkeyModifiers, activeHotkeyKey);
+                pendingHotkeyModifiers = activeHotkeyModifiers;
+                pendingHotkeyKey = activeHotkeyKey;
+                hotkeyStatusLabel.Text = "Не удалось применить сочетание (код " + error + ").";
+                MessageBox.Show(this, "Сочетание занято или не поддерживается Windows. Прежний хоткей " + (restored ? "оставлен активным." : "не удалось восстановить; проверь настройки."), "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            hotkeyRegistered = true;
+            activeHotkeyModifiers = pendingHotkeyModifiers;
+            activeHotkeyKey = pendingHotkeyKey;
+            settings.HotkeyModifiers = activeHotkeyModifiers;
+            settings.HotkeyKey = activeHotkeyKey;
+            settings.Save(settingsFile);
+            hotkeyBox.Text = FormatHotkey(activeHotkeyModifiers, activeHotkeyKey);
+            hotkeyStatusLabel.Text = "Сохранено: " + hotkeyBox.Text;
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            if (settings != null && !hotkeyRegistered)
+            {
+                hotkeyRegistered = RegisterHotKey(Handle, HotkeyId, (uint)settings.HotkeyModifiers | ModNoRepeat, (uint)settings.HotkeyKey);
+                if (!hotkeyRegistered && hotkeyStatusLabel != null)
+                    hotkeyStatusLabel.Text = "Не удалось зарегистрировать хоткей. Возможно, он занят — выбери другое сочетание.";
+            }
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WmHotkey && m.WParam.ToInt32() == HotkeyId)
+            {
+                if (!busy) Toggle();
+                else NotifyTray("HasladDNS", "Операция DNS уже выполняется. Повтори хоткей позже.");
+                return;
+            }
+            base.WndProc(ref m);
         }
 
         void SetupTray()
@@ -933,6 +1083,7 @@ namespace HbAiSmartDnsCustom
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            if (hotkeyRegistered && IsHandleCreated) { UnregisterHotKey(Handle, HotkeyId); hotkeyRegistered = false; }
             if (monitorTimer != null) monitorTimer.Stop();
             if (tray != null) { tray.Visible=false; tray.Dispose(); }
             if (trayMenu != null) trayMenu.Dispose();
