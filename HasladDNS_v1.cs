@@ -398,7 +398,7 @@ namespace HbAiSmartDnsCustom
 
         void BuildUi()
         {
-            var title = new Label { Text="HasladDNS v1", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=Color.White, Location=new Point(22,18), AutoSize=true }; Controls.Add(title);
+            var title = new Label { Text="HasladDNS v1.1", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=Color.White, Location=new Point(22,18), AutoSize=true }; Controls.Add(title);
             var subtitle = new Label { Text="Переключатель DNS · IPv4 only", ForeColor=muted, Location=new Point(24,54), AutoSize=true }; Controls.Add(subtitle);
             themeButton = Btn("Тема: тёмная", 390, 20, 155, 34); themeButton.Click += (s,e) => ToggleTheme(); Controls.Add(themeButton);
             profileBox = new ComboBox { Location=new Point(24,100), Size=new Size(360,30), DropDownStyle=ComboBoxStyle.DropDownList, BackColor=Color.FromArgb(17,17,24), ForeColor=Color.White, FlatStyle=FlatStyle.Flat };
