@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using Microsoft.Win32;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -169,6 +170,12 @@ namespace HbAiSmartDnsCustom
                 "foreach($x in $a){ $n='name=\"' + $x.Name + '\"'; $out = & netsh.exe interface ipv4 set dnsservers $n source=dhcp 2>&1; if($LASTEXITCODE -ne 0){throw ('Не удалось вернуть автоматический IPv4 DNS для адаптера ' + $x.Name + '. netsh: ' + ($out -join ' '))} }; " +
                 "Clear-DnsClientCache -ErrorAction Stop; 'OK'";
             RunPowerShell(script);
+        }
+
+        public static bool HasIpv6Dns()
+        {
+            string output = RunPowerShell("Get-DnsClientServerAddress -AddressFamily IPv6 | Where-Object { $_.ServerAddresses.Count -gt 0 } | ForEach-Object { $_.ServerAddresses }");
+            return !String.IsNullOrWhiteSpace(output);
         }
 
         public static string GetCurrentDns()
@@ -437,6 +444,9 @@ namespace HbAiSmartDnsCustom
             trayMenu.Items.Add(new ToolStripSeparator());
             RebuildTrayProfiles();
             trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add("Недавно использованные", null, (s,e) => ShowRecentProfiles());
+            trayMenu.Items.Add("Автозапуск с Windows", null, (s,e) => ToggleStartup());
+            trayMenu.Items.Add("Уведомлять об изменении DNS", null, (s,e) => ToggleDnsNotifications());
             trayMenu.Items.Add("Очистить DNS-кэш", null, (s,e) => RunUtility(() => { DnsEngine.FlushCache(); return "DNS-кэш очищен."; }));
             trayMenu.Items.Add("Выход", null, (s,e) => { allowExit=true; tray.Visible=false; Application.Exit(); });
             tray = new NotifyIcon();
@@ -445,6 +455,59 @@ namespace HbAiSmartDnsCustom
             tray.ContextMenuStrip = trayMenu;
             tray.Visible = true;
             tray.DoubleClick += (s,e) => RestoreFromTray();
+            if (!settings.WarnedAboutIpv6)
+            {
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    bool hasIpv6 = false;
+                    try { hasIpv6 = DnsEngine.HasIpv6Dns(); } catch { }
+                    if (hasIpv6)
+                    {
+                        settings.WarnedAboutIpv6 = true;
+                        settings.Save(settingsFile);
+                        try { BeginInvoke((Action)(() => NotifyTray("Обратите внимание на IPv6", "HasladDNS меняет только IPv4 DNS. IPv6 DNS остаётся без изменений.")); } catch { }
+                    }
+                });
+            }
+        }
+
+        void ToggleStartup()
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
+                {
+                    if (key == null) throw new Exception("Не удалось открыть раздел автозапуска Windows.");
+                    if (settings.StartWithWindows)
+                    {
+                        key.DeleteValue("HasladDNS", false);
+                        settings.StartWithWindows = false;
+                    }
+                    else
+                    {
+                        key.SetValue("HasladDNS", "\"" + Application.ExecutablePath + "\"");
+                        settings.StartWithWindows = true;
+                    }
+                }
+                settings.Save(settingsFile);
+                NotifyTray("HasladDNS", settings.StartWithWindows ? "Автозапуск включён." : "Автозапуск выключен.");
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        }
+
+        void ToggleDnsNotifications()
+        {
+            settings.NotifyDnsChanges = !settings.NotifyDnsChanges;
+            settings.Save(settingsFile);
+            NotifyTray("HasladDNS", settings.NotifyDnsChanges ? "Уведомления об изменении DNS включены." : "Уведомления об изменении DNS выключены.");
+        }
+
+        void ShowRecentProfiles()
+        {
+            string message = settings.RecentProfiles.Count == 0
+                ? "История пока пуста."
+                : String.Join(Environment.NewLine, settings.RecentProfiles.Select((name, index) => (index + 1) + ". " + name).ToArray());
+            MessageBox.Show(this, message, "Последние 3 DNS-профиля", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         void RebuildTrayProfiles()
@@ -723,7 +786,13 @@ namespace HbAiSmartDnsCustom
                 BeginInvoke((Action)(() => {
                     busy=false;
                     if (error==null) success();
-                    else { errorText=error.Message; RefreshState(false); ShowDiagnostic(error); }
+                    else
+                    {
+                        errorText=error.Message;
+                        NotifyTray("Не удалось применить DNS", error.Message.Length > 180 ? error.Message.Substring(0, 177) + "..." : error.Message);
+                        RefreshState(false);
+                        ShowDiagnostic(error);
+                    }
                     UpdateUi();
                 }));
             });
