@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using Microsoft.Win32;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -47,14 +46,12 @@ namespace HbAiSmartDnsCustom
         [DataMember] public List<string> RecentProfiles { get; set; }
         [DataMember] public bool NotifyDnsChanges { get; set; }
         [DataMember] public bool WarnedAboutIpv6 { get; set; }
-        [DataMember] public bool StartWithWindows { get; set; }
 
         public AppSettings()
         {
             RecentProfiles = new List<string>();
             NotifyDnsChanges = true;
             WarnedAboutIpv6 = false;
-            StartWithWindows = false;
         }
 
         public static AppSettings Load(string path)
@@ -447,7 +444,6 @@ namespace HbAiSmartDnsCustom
             trayMenu.Items.Add("Импорт профилей из JSON…", null, (s,e) => ImportProfiles());
             trayMenu.Items.Add("Экспорт профилей в JSON…", null, (s,e) => ExportProfiles());
             trayMenu.Items.Add("Недавно использованные", null, (s,e) => ShowRecentProfiles());
-            trayMenu.Items.Add("Автозапуск с Windows", null, (s,e) => ToggleStartup());
             trayMenu.Items.Add("Уведомлять об изменении DNS", null, (s,e) => ToggleDnsNotifications());
             trayMenu.Items.Add("Очистить DNS-кэш", null, (s,e) => RunUtility(() => { DnsEngine.FlushCache(); return "DNS-кэш очищен."; }));
             trayMenu.Items.Add("Выход", null, (s,e) => { allowExit=true; tray.Visible=false; Application.Exit(); });
@@ -470,57 +466,6 @@ namespace HbAiSmartDnsCustom
                         try { BeginInvoke((Action)(() => NotifyTray("Обратите внимание на IPv6", "HasladDNS меняет только IPv4 DNS. IPv6 DNS остаётся без изменений."))); } catch { }
                     }
                 });
-            }
-        }
-
-        void ToggleStartup()
-        {
-            try
-            {
-                // The application requires elevation to change DNS. Register it as a
-                // highest-privilege logon task instead of using HKCU\\...\\Run,
-                // which cannot reliably launch an elevated app at sign-in.
-                string taskName = "HasladDNS";
-                string arguments;
-                if (settings.StartWithWindows)
-                    arguments = "/Delete /TN \"" + taskName + "\" /F";
-                else
-                    arguments = "/Create /TN \"" + taskName + "\" /SC ONLOGON /TR \"" + Application.ExecutablePath + "\" /RL HIGHEST /IT /F";
-
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                string output;
-                string error;
-                using (Process process = Process.Start(startInfo))
-                {
-                    output = process.StandardOutput.ReadToEnd();
-                    error = process.StandardError.ReadToEnd();
-                    process.WaitForExit();
-                    if (process.ExitCode != 0)
-                    {
-                        string details = String.IsNullOrWhiteSpace(error) ? output : error;
-                        throw new Exception("Не удалось изменить задачу автозапуска. " + details.Trim());
-                    }
-                }
-
-                // Remove the legacy Run entry if a previous build created one.
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
-                    if (key != null) key.DeleteValue("HasladDNS", false);
-
-                settings.StartWithWindows = !settings.StartWithWindows;
-                settings.Save(settingsFile);
-                NotifyTray("HasladDNS", settings.StartWithWindows ? "Автозапуск включён через Планировщик заданий." : "Автозапуск выключен.");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, ex.Message, "HasladDNS — автозапуск", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
