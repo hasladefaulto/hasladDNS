@@ -477,24 +477,51 @@ namespace HbAiSmartDnsCustom
         {
             try
             {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+                // The application requires elevation to change DNS. Register it as a
+                // highest-privilege logon task instead of using HKCU\\...\\Run,
+                // which cannot reliably launch an elevated app at sign-in.
+                string taskName = "HasladDNS";
+                string arguments;
+                if (settings.StartWithWindows)
+                    arguments = "/Delete /TN \"" + taskName + "\" /F";
+                else
+                    arguments = "/Create /TN \"" + taskName + "\" /SC ONLOGON /TR \"" + Application.ExecutablePath + "\" /RL HIGHEST /F";
+
+                var startInfo = new ProcessStartInfo
                 {
-                    if (key == null) throw new Exception("Не удалось открыть раздел автозапуска Windows.");
-                    if (settings.StartWithWindows)
+                    FileName = "schtasks.exe",
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                string output;
+                string error;
+                using (Process process = Process.Start(startInfo))
+                {
+                    output = process.StandardOutput.ReadToEnd();
+                    error = process.StandardError.ReadToEnd();
+                    process.WaitForExit();
+                    if (process.ExitCode != 0)
                     {
-                        key.DeleteValue("HasladDNS", false);
-                        settings.StartWithWindows = false;
-                    }
-                    else
-                    {
-                        key.SetValue("HasladDNS", "\"" + Application.ExecutablePath + "\"");
-                        settings.StartWithWindows = true;
+                        string details = String.IsNullOrWhiteSpace(error) ? output : error;
+                        throw new Exception("Не удалось изменить задачу автозапуска. " + details.Trim());
                     }
                 }
+
+                // Remove the legacy Run entry if a previous build created one.
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
+                    if (key != null) key.DeleteValue("HasladDNS", false);
+
+                settings.StartWithWindows = !settings.StartWithWindows;
                 settings.Save(settingsFile);
-                NotifyTray("HasladDNS", settings.StartWithWindows ? "Автозапуск включён." : "Автозапуск выключен.");
+                NotifyTray("HasladDNS", settings.StartWithWindows ? "Автозапуск включён через Планировщик заданий." : "Автозапуск выключен.");
             }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "HasladDNS — автозапуск", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         void ToggleDnsNotifications()
