@@ -5,7 +5,7 @@
 
 **Управление DNS в Windows без лишних телодвижений.**
 
-[![Скачать последнюю версию](https://img.shields.io/github/v/release/ТВОЙ_НИК/ИМЯ_РЕПОЗИТОРИЯ?style=for-the-badge&label=Скачать%20HasladDNS)](https://github.com/ТВОЙ_НИК/ИМЯ_РЕПОЗИТОРИЯ/releases/latest)
+[![Скачать последнюю версию](https://img.shields.io/github/v/release/hasladefaulto/hasladDNS?style=for-the-badge&label=Скачать%20HasladDNS)](https://github.com/hasladefaulto/hasladDNS/releases/latest)
 
 </div>
 
