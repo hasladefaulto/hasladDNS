@@ -550,7 +550,14 @@ namespace HbAiSmartDnsCustom
                             if (!addresses.Contains(ip.ToString())) addresses.Add(ip.ToString());
                         }
                         if (addresses.Count > 0)
-                            valid.Add(new DnsProfile { Name=profile.Name.Trim(), Description=profile.Description ?? "", Website=profile.Website ?? "", Addresses=addresses });
+                        {
+                            string website = (profile.Website ?? "").Trim();
+                            Uri siteUri;
+                            if (website.Length > 0 && (!Uri.TryCreate(website, UriKind.Absolute, out siteUri) ||
+                                (siteUri.Scheme != "http" && siteUri.Scheme != "https")))
+                                throw new Exception("Профиль «" + profile.Name + "» содержит небезопасный или некорректный URL.");
+                            valid.Add(new DnsProfile { Name=profile.Name.Trim(), Description=profile.Description ?? "", Website=website, Addresses=addresses });
+                        }
                     }
                     if (valid.Count == 0) throw new Exception("В файле нет корректных DNS-профилей.");
                     int added = 0;
