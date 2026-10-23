@@ -444,6 +444,8 @@ namespace HbAiSmartDnsCustom
             trayMenu.Items.Add(new ToolStripSeparator());
             RebuildTrayProfiles();
             trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add("Импорт профилей из JSON…", null, (s,e) => ImportProfiles());
+            trayMenu.Items.Add("Экспорт профилей в JSON…", null, (s,e) => ExportProfiles());
             trayMenu.Items.Add("Недавно использованные", null, (s,e) => ShowRecentProfiles());
             trayMenu.Items.Add("Автозапуск с Windows", null, (s,e) => ToggleStartup());
             trayMenu.Items.Add("Уведомлять об изменении DNS", null, (s,e) => ToggleDnsNotifications());
@@ -500,6 +502,76 @@ namespace HbAiSmartDnsCustom
             settings.NotifyDnsChanges = !settings.NotifyDnsChanges;
             settings.Save(settingsFile);
             NotifyTray("HasladDNS", settings.NotifyDnsChanges ? "Уведомления об изменении DNS включены." : "Уведомления об изменении DNS выключены.");
+        }
+
+        void ExportProfiles()
+        {
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = "Экспорт DNS-профилей";
+                dialog.Filter = "JSON (*.json)|*.json";
+                dialog.FileName = "hasladDNS-profiles.json";
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                try
+                {
+                    using (var stream = File.Create(dialog.FileName))
+                        new DataContractJsonSerializer(typeof(ProfileStore)).WriteObject(stream, new ProfileStore { Profiles = profiles });
+                    MessageBox.Show(this, "Профили экспортированы.", "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex) { MessageBox.Show(this, "Не удалось экспортировать профили: " + ex.Message, "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            }
+        }
+
+        void ImportProfiles()
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Импорт DNS-профилей";
+                dialog.Filter = "JSON (*.json)|*.json";
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                try
+                {
+                    ProfileStore imported;
+                    using (var stream = File.OpenRead(dialog.FileName))
+                        imported = new DataContractJsonSerializer(typeof(ProfileStore)).ReadObject(stream) as ProfileStore;
+                    if (imported == null || imported.Profiles == null || imported.Profiles.Count == 0)
+                        throw new Exception("Файл не содержит DNS-профилей.");
+                    var valid = new List<DnsProfile>();
+                    foreach (var profile in imported.Profiles)
+                    {
+                        if (profile == null || String.IsNullOrWhiteSpace(profile.Name) || profile.Addresses == null || profile.Addresses.Count == 0)
+                            continue;
+                        var addresses = new List<string>();
+                        foreach (string address in profile.Addresses)
+                        {
+                            IPAddress ip;
+                            if (!IPAddress.TryParse(address ?? "", out ip) || ip.AddressFamily != AddressFamily.InterNetwork)
+                                throw new Exception("Профиль «" + profile.Name + "» содержит некорректный IPv4-адрес: " + address);
+                            if (!addresses.Contains(ip.ToString())) addresses.Add(ip.ToString());
+                        }
+                        if (addresses.Count > 0)
+                            valid.Add(new DnsProfile { Name=profile.Name.Trim(), Description=profile.Description ?? "", Website=profile.Website ?? "", Addresses=addresses });
+                    }
+                    if (valid.Count == 0) throw new Exception("В файле нет корректных DNS-профилей.");
+                    int added = 0;
+                    foreach (var profile in valid)
+                    {
+                        if (profiles.Any(p => String.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
+                            profile.Name = profile.Name + " (импорт)";
+                        string baseName = profile.Name;
+                        int suffix = 2;
+                        while (profiles.Any(p => String.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
+                            profile.Name = baseName + " " + suffix++;
+                        profiles.Add(profile);
+                        added++;
+                    }
+                    SaveProfiles();
+                    RefreshProfileBox();
+                    RebuildTrayProfiles();
+                    MessageBox.Show(this, "Импортировано профилей: " + added + ".", "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex) { MessageBox.Show(this, "Не удалось импортировать профили: " + ex.Message, "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            }
         }
 
         void ShowRecentProfiles()
