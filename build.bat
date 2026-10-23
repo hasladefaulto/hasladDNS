@@ -8,14 +8,14 @@ if not exist "%CSC%" (
   pause
   exit /b 1
 )
-echo Building HasladDNS v1.2...
-"%CSC%" /nologo /target:winexe /platform:anycpu /optimize+ /out:HasladDNS_v1.2.exe /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Xml.dll /reference:System.Xml.Serialization.dll /reference:System.Runtime.Serialization.dll /win32manifest:app.manifest /win32icon:HasladDNS.ico HasladDNS_v1.cs
+echo Building HasladDNS...
+"%CSC%" /nologo /target:winexe /platform:anycpu /optimize+ /out:HasladDNS.exe /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:System.Xml.dll /reference:System.Xml.Serialization.dll /reference:System.Runtime.Serialization.dll /win32manifest:app.manifest /win32icon:HasladDNS.ico HasladDNS_v1.cs
 if errorlevel 1 (
   echo Build failed.
   pause
   exit /b 1
 )
 echo.
-echo Build complete: HasladDNS_v1.2.exe
+echo Build complete: HasladDNS.exe
 echo Run it as Administrator to change DNS settings.
 pause
