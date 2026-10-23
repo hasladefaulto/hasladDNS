@@ -475,7 +475,7 @@ namespace HbAiSmartDnsCustom
         {
             try
             {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\\Microsoft\\Windows\\CurrentVersion\\Run", true))
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
                 {
                     if (key == null) throw new Exception("Не удалось открыть раздел автозапуска Windows.");
                     if (settings.StartWithWindows)
