@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity version="1.0.0.0" processorArchitecture="*" name="HasladDNS_v1" type="win32"/>
-  <description>HasladDNS v1 - Custom IPv4 DNS Profiles</description>
+  <description>HasladDNS v1.1 - Custom IPv4 DNS Profiles</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
