@@ -75,3 +75,4 @@ HasladDNS позволяет быстро переключаться между 
 ## Обратная связь
 
 Если вы обнаружили ошибку или хотите предложить улучшение, создайте [Issue](https://github.com/hasladefaulto/hasladDNS/issues) в репозитории.
+## Good luck, have fun
