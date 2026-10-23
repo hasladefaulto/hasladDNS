@@ -532,10 +532,22 @@ namespace HbAiSmartDnsCustom
                         }
                     }
                     if (valid.Count == 0) throw new Exception("В файле нет корректных DNS-профилей.");
+
+                    DialogResult mode = MessageBox.Show(this,
+                        "Да — восстановить резервную копию и заменить все текущие профили.\\r\\nНет — добавить профили из файла к существующим.\\r\\nОтмена — ничего не менять.",
+                        "Импорт / восстановление профилей", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                    if (mode == DialogResult.Cancel) return;
+                    bool restoreBackup = mode == DialogResult.Yes;
+                    if (restoreBackup && MessageBox.Show(this,
+                        "Все текущие DNS-профили будут заменены содержимым выбранного файла. Продолжить?",
+                        "Подтверждение восстановления", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                        return;
+
                     int added = 0;
+                    if (restoreBackup) profiles.Clear();
                     foreach (var profile in valid)
                     {
-                        if (profiles.Any(p => String.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
+                        if (!restoreBackup && profiles.Any(p => String.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase)))
                             profile.Name = profile.Name + " (импорт)";
                         string baseName = profile.Name;
                         int suffix = 2;
@@ -547,7 +559,9 @@ namespace HbAiSmartDnsCustom
                     SaveProfiles();
                     RefreshProfileBox();
                     RebuildTrayProfiles();
-                    MessageBox.Show(this, "Импортировано профилей: " + added + ".", "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this,
+                        restoreBackup ? "Восстановлено профилей: " + added + "." : "Импортировано профилей: " + added + ".",
+                        "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex) { MessageBox.Show(this, "Не удалось импортировать профили: " + ex.Message, "HasladDNS", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             }
