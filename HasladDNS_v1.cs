@@ -393,7 +393,7 @@ namespace HbAiSmartDnsCustom
             dataFile = Path.Combine(dataDir, "profiles.xml");
             settingsFile = Path.Combine(dataDir, "settings.json");
             settings = AppSettings.Load(settingsFile);
-            Text = "HasladDNS v1.1";
+            Text = "HasladDNS";
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(570, 710);
@@ -416,7 +416,7 @@ namespace HbAiSmartDnsCustom
 
         void BuildUi()
         {
-            var title = new Label { Text="HasladDNS v1.1", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=Color.White, Location=new Point(22,18), AutoSize=true }; Controls.Add(title);
+            var title = new Label { Text="HasladDNS", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=Color.White, Location=new Point(22,18), AutoSize=true }; Controls.Add(title);
             var subtitle = new Label { Text="Переключатель DNS · IPv4 only", ForeColor=muted, Location=new Point(24,54), AutoSize=true }; Controls.Add(subtitle);
             settingsButton = Btn("⚙", 350, 20, 34, 34); settingsButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Regular); settingsButton.AccessibleName = "Настройки"; settingsButton.Click += (s,e) => OpenSettings(); Controls.Add(settingsButton);
             themeButton = Btn("Тема: тёмная", 390, 20, 155, 34); themeButton.Click += (s,e) => ToggleTheme(); Controls.Add(themeButton);
@@ -590,6 +590,8 @@ namespace HbAiSmartDnsCustom
         {
             trayMenu = new ContextMenuStrip();
             trayMenu.Items.Add("Открыть HasladDNS", null, (s,e) => RestoreFromTray());
+            var versionItem = new ToolStripMenuItem("Версия 1.2") { Enabled = false };
+            trayMenu.Items.Add(versionItem);
             trayMenu.Items.Add(new ToolStripSeparator());
             RebuildTrayProfiles();
             trayMenu.Items.Add(new ToolStripSeparator());
@@ -601,7 +603,7 @@ namespace HbAiSmartDnsCustom
             trayMenu.Items.Add("Выход", null, (s,e) => { allowExit=true; tray.Visible=false; Application.Exit(); });
             tray = new NotifyIcon();
             try { tray.Icon = Icon ?? System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { tray.Icon = SystemIcons.Application; }
-            tray.Text = "HasladDNS v1.1";
+            tray.Text = "HasladDNS v1.2";
             tray.ContextMenuStrip = trayMenu;
             tray.Visible = true;
             tray.DoubleClick += (s,e) => RestoreFromTray();
