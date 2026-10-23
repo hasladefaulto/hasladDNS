@@ -529,7 +529,7 @@ namespace HbAiSmartDnsCustom
 
         void SaveHotkey()
         {
-            if (pendingHotkeyModifiers == activeHotkeyModifiers && pendingHotkeyKey == activeHotkeyKey)
+            if (hotkeyRegistered && pendingHotkeyModifiers == activeHotkeyModifiers && pendingHotkeyKey == activeHotkeyKey)
             {
                 settings.HotkeyModifiers = activeHotkeyModifiers;
                 settings.HotkeyKey = activeHotkeyKey;
