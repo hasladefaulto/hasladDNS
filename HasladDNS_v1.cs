@@ -90,8 +90,8 @@ namespace HbAiSmartDnsCustom
                 if (!String.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 using (var stream = File.Create(temp))
                     new DataContractJsonSerializer(typeof(AppSettings)).WriteObject(stream, this);
-                if (File.Exists(path)) File.Delete(path);
-                File.Move(temp, path);
+                if (File.Exists(path)) File.Replace(temp, path, null);
+                else File.Move(temp, path);
             }
             catch
             {
