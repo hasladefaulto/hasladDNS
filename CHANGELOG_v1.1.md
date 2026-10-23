@@ -1,19 +1,26 @@
-# HasladDNS 1.1 — work in progress
+# HasladDNS 1.1 — состав релиза
 
-## Implemented in the patch branch
+## Включено
 
-- Added `settings.json` for app settings while preserving `profiles.xml` and `theme.txt`.
-- Track the three most recently applied DNS profiles.
-- Detect changes to the visible IPv4 DNS configuration and notify through the system tray when a change appears external.
-- Check DNS resolution periodically; notify after three consecutive failures and when resolution recovers.
-- Notify when applying a DNS profile fails.
-- Added tray commands to view recent profiles, toggle Windows startup through an elevated Task Scheduler logon task, and toggle DNS-change notifications.
-- Warn once when IPv6 DNS servers are configured, because this app only changes IPv4 DNS.
-- Added the .NET Framework assembly reference required for JSON serialization.
+- Периодическая проверка разрешения доменных имён; уведомление после трёх последовательных неудач и отдельное уведомление о восстановлении DNS.
+- Уведомление, если IPv4 DNS изменился вне HasladDNS.
+- Уведомление при ошибке применения DNS-профиля.
+- История последних трёх применённых профилей.
+- Экспорт и импорт пользовательских профилей в JSON для резервного копирования и восстановления.
+- Настройка уведомлений об изменениях DNS.
+- Предупреждение о том, что приложение изменяет только IPv4 DNS; IPv6 DNS не перенастраивается.
+- Сохранение существующих пользовательских профилей в `%AppData%\HB AI Smart DNS\profiles.xml`, темы в `theme.txt` и настроек/истории в `settings.json`.
 
-## Verification still required
+## Не входит в релиз
 
-- Compile with the Windows .NET Framework C# compiler.
-- Exercise profile apply/disable, external DNS change detection, startup toggle, settings persistence, IPv6 warning, and tray notifications on Windows.
-- Verify DNS health notifications under captive portals and transient network failures.
-- Verify elevated Task Scheduler autostart after sign-in and removal when toggled off.
+- Автозапуск Windows.
+- Автоматическое переключение профилей при смене Wi-Fi.
+- DNS-бенчмарк.
+- Масштабный редизайн интерфейса (низкий приоритет).
+
+## Проверки перед выпуском
+
+- Собрать приложение на Windows через `build.bat`.
+- Проверить применение и отключение профилей, историю, экспорт/импорт и сохранение настроек.
+- Проверить уведомления при недоступном DNS, восстановлении DNS, внешнем изменении IPv4 DNS и ошибке применения профиля.
+- Убедиться, что настройки IPv6 не меняются.
