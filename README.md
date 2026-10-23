@@ -11,47 +11,67 @@
 
 # HasladDNS
 
-A Windows DNS profile manager with a focus on **IPv4 only**. The application is written in C# using Windows Forms and can be built with the .NET Framework C# compiler included with Windows.
+**Простая утилита для управления DNS-серверами в Windows.**
 
-## Features
+<div align="center">
 
-- Apply saved IPv4 DNS profiles to network adapters.
-- Add, edit, and remove custom profiles.
-- Dark and light themes.
-- Show current IPv4 DNS settings and refresh them periodically.
-- Flush the Windows DNS resolver cache.
-- Run an interactive `nslookup` diagnostic.
-- Minimize to the system tray and switch profiles from the tray menu.
-- Application icon embedded during build.
+</div>
 
-**IPv6 settings are not configured or modified.** Changing DNS settings requires administrator privileges.
+HasladDNS позволяет быстро переключаться между DNS-профилями, проверять текущие сетевые настройки и выполнять основные диагностические действия без необходимости каждый раз открывать командную строку.
 
-## Build on Windows
+## Возможности
 
-1. Download or clone this repository.
-2. Keep `HasladDNS_v1.cs`, `app.manifest`, `HasladDNS.ico`, and `build.bat` in the same directory.
-3. Run `build.bat` on Windows 10 or Windows 11.
-4. The script creates `HasladDNS_v1.exe` in the project directory.
-5. Run the application as Administrator to apply DNS changes.
+- **DNS-профили** — переключение между встроенными и пользовательскими профилями.
+- **Пользовательские настройки** — добавление, редактирование и удаление собственных профилей.
+- **Мониторинг DNS** — просмотр текущих IPv4 DNS-серверов и обнаружение изменений настроек.
+- **Диагностика сети** — очистка DNS-кэша Windows и проверка доменов с помощью `nslookup`.
+- **Системный трей** — сворачивание приложения в область уведомлений и быстрое переключение профилей.
+- **Тёмная и светлая темы** — оформление интерфейса на выбор.
+- **IPv4-only** — программа изменяет только настройки DNS для IPv4 и не перенастраивает IPv6.
 
-The build script uses the .NET Framework C# compiler at `%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe`, falling back to the 32-bit framework path.
+## Установка
 
-## User data
+1. Откройте раздел [последних релизов](https://github.com/hasladefaulto/hasladDNS/releases/latest).
+2. Скачайте `HasladDNS_v1.exe` из раздела **Assets**.
+3. Запустите приложение. Для изменения DNS потребуются права администратора.
+4. Выберите нужный профиль и примените настройки.
 
-User profiles and theme preference are stored locally under:
+## Сборка из исходников
+
+Для самостоятельной сборки:
+
+1. Скачайте исходный код репозитория.
+2. Распакуйте файлы в отдельную папку.
+3. Запустите `build.bat`.
+4. После успешной сборки запустите полученный EXE-файл.
+
+Сборка использует компилятор C# из .NET Framework, поставляемого с Windows или установленного отдельно при необходимости.
+
+## Хранение настроек
+
+Пользовательские профили и настройки темы сохраняются в каталоге:
 
 ```text
 %AppData%\HB AI Smart DNS\
 ```
 
-The profile file is `profiles.xml`; the theme preference is stored in `theme.txt`. These files are local application data and should not normally be committed to the repository.
+- `profiles.xml` — сохранённые DNS-профили.
+- `theme.txt` — выбранная тема оформления.
 
-## Notes
+При обновлении приложения рекомендуется сохранять резервную копию пользовательских профилей.
 
-- DNS availability and compatibility depend on the selected provider and network.
-- The current-DNS display is informational; it does not automatically overwrite DNS settings when a change is detected.
-- Test the application on your own system before relying on it for network troubleshooting.
+## Безопасность и ограничения
 
-## Attribution
+- Программа изменяет настройки IPv4 DNS в Windows.
+- Выбирайте DNS-серверы только из источников, которым доверяете.
+- Очистка DNS-кэша влияет на локальный кэш разрешения доменных имён.
+- Успешный ответ `nslookup` не гарантирует доступность самого сайта или сервиса.
+- Приложение не настраивает IPv6 DNS.
 
-This project originated from/reuses an implementation based on the public HB AI Xbox DNS project. Preserve the original copyright and license notices in source files. Review the upstream license and ensure the required attribution is included before redistributing.
+## Лицензия
+
+Проект распространяется на условиях MIT License с учётом лицензии и уведомлений об авторских правах исходного проекта, на основе которого он создан.
+
+## Обратная связь
+
+Если вы обнаружили ошибку или хотите предложить улучшение, создайте [Issue](https://github.com/hasladefaulto/hasladDNS/issues) в репозитории.
