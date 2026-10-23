@@ -465,7 +465,7 @@ namespace HbAiSmartDnsCustom
                     {
                         settings.WarnedAboutIpv6 = true;
                         settings.Save(settingsFile);
-                        try { BeginInvoke((Action)(() => NotifyTray("Обратите внимание на IPv6", "HasladDNS меняет только IPv4 DNS. IPv6 DNS остаётся без изменений.")); } catch { }
+                        try { BeginInvoke((Action)(() => NotifyTray("Обратите внимание на IPv6", "HasladDNS меняет только IPv4 DNS. IPv6 DNS остаётся без изменений."))); } catch { }
                     }
                 });
             }
