@@ -16,6 +16,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Build complete: HasladDNS_v1.exe
+echo Build complete: HasladDNS_v1.1.exe
 echo Run it as Administrator to change DNS settings.
 pause
