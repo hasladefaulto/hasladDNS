@@ -11,6 +11,8 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Principal;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -36,6 +38,73 @@ namespace HbAiSmartDnsCustom
         [XmlArrayItem("Profile")]
         public List<DnsProfile> Profiles { get; set; }
         public ProfileStore() { Profiles = new List<DnsProfile>(); }
+    }
+
+    [DataContract]
+    public class AppSettings
+    {
+        [DataMember] public List<string> RecentProfiles { get; set; }
+        [DataMember] public bool NotifyDnsChanges { get; set; }
+        [DataMember] public bool WarnedAboutIpv6 { get; set; }
+        [DataMember] public bool StartWithWindows { get; set; }
+
+        public AppSettings()
+        {
+            RecentProfiles = new List<string>();
+            NotifyDnsChanges = true;
+            WarnedAboutIpv6 = false;
+            StartWithWindows = false;
+        }
+
+        public static AppSettings Load(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    using (var stream = File.OpenRead(path))
+                    {
+                        var serializer = new DataContractJsonSerializer(typeof(AppSettings));
+                        var loaded = serializer.ReadObject(stream) as AppSettings;
+                        if (loaded != null)
+                        {
+                            if (loaded.RecentProfiles == null) loaded.RecentProfiles = new List<string>();
+                            loaded.RecentProfiles = loaded.RecentProfiles.Where(x => !String.IsNullOrWhiteSpace(x))
+                                .Distinct(StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+                            return loaded;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return new AppSettings();
+        }
+
+        public void Save(string path)
+        {
+            string temp = path + ".tmp";
+            try
+            {
+                string directory = Path.GetDirectoryName(path);
+                if (!String.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                using (var stream = File.Create(temp))
+                    new DataContractJsonSerializer(typeof(AppSettings)).WriteObject(stream, this);
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(temp, path);
+            }
+            catch
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            }
+        }
+
+        public void RecordProfile(string name)
+        {
+            if (String.IsNullOrWhiteSpace(name)) return;
+            RecentProfiles.RemoveAll(x => String.Equals(x, name, StringComparison.OrdinalIgnoreCase));
+            RecentProfiles.Insert(0, name);
+            if (RecentProfiles.Count > 3) RecentProfiles.RemoveRange(3, RecentProfiles.Count - 3);
+        }
     }
 
     static class DnsEngine
@@ -276,6 +345,13 @@ namespace HbAiSmartDnsCustom
         readonly Color bg = Color.FromArgb(7,7,11), violet = Color.FromArgb(140,112,255), yellow = Color.FromArgb(255,224,102), muted = Color.FromArgb(141,141,154);
         readonly string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HB AI Smart DNS");
         readonly string dataFile;
+        readonly string settingsFile;
+        AppSettings settings;
+        string lastDnsSnapshot;
+        bool expectedDnsChange;
+        int consecutiveDnsFailures;
+        bool dnsHealthUnavailable;
+        bool healthCheckRunning;
         List<DnsProfile> profiles;
         ComboBox profileBox;
         Label status, addressLabel, infoLabel;
@@ -290,7 +366,9 @@ namespace HbAiSmartDnsCustom
         public MainForm()
         {
             dataFile = Path.Combine(dataDir, "profiles.xml");
-            Text = "HasladDNS v1";
+            settingsFile = Path.Combine(dataDir, "settings.json");
+            settings = AppSettings.Load(settingsFile);
+            Text = "HasladDNS v1.1";
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(570, 650);
@@ -306,7 +384,7 @@ namespace HbAiSmartDnsCustom
             UpdateUi();
             SetupTray();
             monitorTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-            monitorTimer.Tick += (s, e) => RefreshCurrentDns();
+            monitorTimer.Tick += (s, e) => { RefreshCurrentDns(); CheckDnsHealth(); };
             monitorTimer.Start();
             RefreshCurrentDns();
         }
@@ -363,7 +441,7 @@ namespace HbAiSmartDnsCustom
             trayMenu.Items.Add("Выход", null, (s,e) => { allowExit=true; tray.Visible=false; Application.Exit(); });
             tray = new NotifyIcon();
             try { tray.Icon = Icon ?? System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { tray.Icon = SystemIcons.Application; }
-            tray.Text = "HasladDNS v1";
+            tray.Text = "HasladDNS v1.1";
             tray.ContextMenuStrip = trayMenu;
             tray.Visible = true;
             tray.DoubleClick += (s,e) => RestoreFromTray();
@@ -420,8 +498,78 @@ namespace HbAiSmartDnsCustom
                     {
                         currentDnsLabel.Text = error == null ? "Текущие IPv4 DNS: " + result : "Не удалось прочитать DNS: " + error.Message;
                         currentDnsLabel.ForeColor = error == null ? ThemeSettings.Muted : Color.IndianRed;
+                        if (error == null)
+                        {
+                            string snapshot = NormalizeDnsSnapshot(result);
+                            if (lastDnsSnapshot == null) lastDnsSnapshot = snapshot;
+                            else if (!String.Equals(lastDnsSnapshot, snapshot, StringComparison.OrdinalIgnoreCase))
+                            {
+                                lastDnsSnapshot = snapshot;
+                                if (expectedDnsChange) expectedDnsChange = false;
+                                else if (!busy && settings.NotifyDnsChanges)
+                                    NotifyTray("Изменение DNS", "Настройки IPv4 DNS изменились вне HasladDNS.");
+                            }
+                        }
                     }
                 })); } catch { monitoring=false; }
+            });
+        }
+
+        static string NormalizeDnsSnapshot(string value)
+        {
+            return String.Join("|", (value ?? "").Split(new[] { '|', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Trim()).Where(x => x.Length > 0).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray());
+        }
+
+        void NotifyTray(string title, string message)
+        {
+            try
+            {
+                if (tray != null && tray.Visible)
+                    tray.ShowBalloonTip(4000, title, message, ToolTipIcon.Warning);
+            }
+            catch { }
+        }
+
+        void CheckDnsHealth()
+        {
+            if (healthCheckRunning || busy || IsDisposed) return;
+            healthCheckRunning = true;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                bool failed = false;
+                try
+                {
+                    var result = Dns.GetHostAddresses("example.com");
+                    failed = result == null || result.Length == 0;
+                }
+                catch { failed = true; }
+                try
+                {
+                    BeginInvoke((Action)(() =>
+                    {
+                        healthCheckRunning = false;
+                        if (failed)
+                        {
+                            consecutiveDnsFailures++;
+                            if (consecutiveDnsFailures >= 3 && !dnsHealthUnavailable)
+                            {
+                                dnsHealthUnavailable = true;
+                                NotifyTray("DNS недоступен", "Три последовательные проверки DNS завершились неудачно.");
+                            }
+                        }
+                        else
+                        {
+                            consecutiveDnsFailures = 0;
+                            if (dnsHealthUnavailable)
+                            {
+                                dnsHealthUnavailable = false;
+                                NotifyTray("DNS восстановлен", "Разрешение доменных имён снова работает.");
+                            }
+                        }
+                    }));
+                }
+                catch { healthCheckRunning = false; }
             });
         }
 
@@ -563,12 +711,12 @@ namespace HbAiSmartDnsCustom
         {
             if (i<0 || i>=profiles.Count || busy) return;
             var p=profiles[i];
-            RunAction(() => DnsEngine.Apply(p.Addresses), () => { active=true; activeProfile=i; RefreshState(false); });
+            RunAction(() => DnsEngine.Apply(p.Addresses), () => { active=true; activeProfile=i; settings.RecordProfile(p.Name); settings.Save(settingsFile); RefreshState(false); });
         }
 
         void RunAction(Action work, Action success)
         {
-            busy=true; errorText=null; UpdateUi();
+            busy=true; errorText=null; expectedDnsChange=true; UpdateUi();
             ThreadPool.QueueUserWorkItem(_ => {
                 Exception error=null;
                 try { work(); } catch(Exception ex) { error=ex; }
