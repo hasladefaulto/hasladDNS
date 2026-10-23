@@ -1,3 +1,14 @@
+
+<div align="center">
+
+# HasladDNS
+
+**Управление DNS в Windows без лишних телодвижений.**
+
+[![Скачать последнюю версию](https://img.shields.io/github/v/release/ТВОЙ_НИК/ИМЯ_РЕПОЗИТОРИЯ?style=for-the-badge&label=Скачать%20HasladDNS)](https://github.com/ТВОЙ_НИК/ИМЯ_РЕПОЗИТОРИЯ/releases/latest)
+
+</div>
+
 # HasladDNS
 
 A Windows DNS profile manager with a focus on **IPv4 only**. The application is written in C# using Windows Forms and can be built with the .NET Framework C# compiler included with Windows.
