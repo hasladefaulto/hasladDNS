@@ -485,7 +485,7 @@ namespace HbAiSmartDnsCustom
                 if (settings.StartWithWindows)
                     arguments = "/Delete /TN \"" + taskName + "\" /F";
                 else
-                    arguments = "/Create /TN \"" + taskName + "\" /SC ONLOGON /TR \"" + Application.ExecutablePath + "\" /RL HIGHEST /F";
+                    arguments = "/Create /TN \"" + taskName + "\" /SC ONLOGON /TR \"" + Application.ExecutablePath + "\" /RL HIGHEST /IT /F";
 
                 var startInfo = new ProcessStartInfo
                 {
