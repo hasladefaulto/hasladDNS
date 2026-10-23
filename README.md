@@ -5,7 +5,7 @@
 
 **Управление DNS в Windows без лишних телодвижений.**
 
-[![Скачать последнюю версию](https://img.shields.io/github/v/release/hasladefaulto/hasladDNS?style=for-the-badge&label=Скачать%20HasladDNS)](https://github.com/hasladefaulto/hasladDNS/releases/latest)
+[![Скачать HasladDNS v1.1](https://img.shields.io/badge/Скачать-HasladDNS%20v1.1-blue?style=for-the-badge)](https://github.com/hasladefaulto/hasladDNS/releases/tag/v1.1)
 
 </div>
 
@@ -33,7 +33,7 @@ HasladDNS позволяет быстро переключаться между 
 
 ## Установка
 
-1. Откройте раздел [последних релизов](https://github.com/hasladefaulto/hasladDNS/releases/latest).
+1. Откройте страницу [релиза HasladDNS v1.1](https://github.com/hasladefaulto/hasladDNS/releases/tag/v1.1).
 2. Скачайте `HasladDNS_v1.1.exe` из раздела **Assets**.
 3. Запустите приложение. Для изменения DNS потребуются права администратора.
 4. Выберите нужный профиль и примените настройки.
