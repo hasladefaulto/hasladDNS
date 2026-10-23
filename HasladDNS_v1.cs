@@ -374,9 +374,7 @@ namespace HbAiSmartDnsCustom
         List<DnsProfile> profiles;
         ComboBox profileBox;
         Label status, addressLabel, infoLabel;
-        Button toggle, add, edit, remove, site, reload, themeButton, flushButton, lookupButton;
-        TabControl mainTabs;
-        TabPage dnsTab, settingsTab;
+        Button toggle, add, edit, remove, site, reload, themeButton, settingsButton, flushButton, lookupButton;
         TextBox hotkeyBox;
         Button saveHotkeyButton, resetHotkeyButton;
         Label hotkeyStatusLabel;
@@ -420,6 +418,7 @@ namespace HbAiSmartDnsCustom
         {
             var title = new Label { Text="HasladDNS v1.1", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=Color.White, Location=new Point(22,18), AutoSize=true }; Controls.Add(title);
             var subtitle = new Label { Text="Переключатель DNS · IPv4 only", ForeColor=muted, Location=new Point(24,54), AutoSize=true }; Controls.Add(subtitle);
+            settingsButton = Btn("⚙", 350, 20, 34, 34); settingsButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Regular); settingsButton.AccessibleName = "Настройки"; settingsButton.Click += (s,e) => OpenSettings(); Controls.Add(settingsButton);
             themeButton = Btn("Тема: тёмная", 390, 20, 155, 34); themeButton.Click += (s,e) => ToggleTheme(); Controls.Add(themeButton);
             profileBox = new ComboBox { Location=new Point(24,100), Size=new Size(360,30), DropDownStyle=ComboBoxStyle.DropDownList, BackColor=Color.FromArgb(17,17,24), ForeColor=Color.White, FlatStyle=FlatStyle.Flat };
             profileBox.SelectedIndexChanged += (s,e) => {
@@ -454,67 +453,70 @@ namespace HbAiSmartDnsCustom
                 var warn = new Label { Text="Внимание: запусти программу от имени администратора.", Location=new Point(25,610), AutoSize=true, ForeColor=yellow };
                 Controls.Add(warn);
             }
-            // Move the existing interface into the first tab without changing its controls or behavior.
-            var oldControls = Controls.Cast<Control>().ToArray();
-            mainTabs = new TabControl { Location = new Point(10, 10), Size = new Size(550, 680), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
-            dnsTab = new TabPage("DNS-профили");
-            settingsTab = new TabPage("Настройки");
-            foreach (Control control in oldControls) dnsTab.Controls.Add(control);
-            mainTabs.TabPages.Add(dnsTab);
-            mainTabs.TabPages.Add(settingsTab);
-            Controls.Add(mainTabs);
-            BuildSettingsTab();
             RefreshProfileBox();
         }
 
-        void BuildSettingsTab()
+        void OpenSettings()
         {
             pendingHotkeyModifiers = settings.HotkeyModifiers;
             pendingHotkeyKey = settings.HotkeyKey;
             activeHotkeyModifiers = settings.HotkeyModifiers;
             activeHotkeyKey = settings.HotkeyKey;
 
-            settingsTab.Padding = new Padding(12);
-            var heading = new Label { Text = "Глобальная горячая клавиша", Font = new Font("Segoe UI", 14, FontStyle.Bold), Location = new Point(18, 20), AutoSize = true };
-            var description = new Label { Text = "Работает, даже когда HasladDNS свёрнут в системный трей.\r\nПереключает DNS так же, как основная кнопка приложения.", Location = new Point(20, 58), Size = new Size(480, 44), ForeColor = ThemeSettings.Muted };
-            var label = new Label { Text = "Сочетание клавиш", Location = new Point(20, 120), AutoSize = true };
-            hotkeyBox = new TextBox { Location = new Point(20, 146), Size = new Size(270, 30), ReadOnly = true, TabStop = true, Font = new Font("Segoe UI", 11F), Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey) };
-            hotkeyBox.Click += (sender, e) => { hotkeyStatusLabel.Text = "Нажми сочетание клавиш на клавиатуре."; hotkeyBox.Focus(); };
-            hotkeyBox.KeyDown += (sender, e) =>
+            using (Form settingsDialog = new Form())
             {
-                e.SuppressKeyPress = true; e.Handled = true;
-                if (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.Menu || e.KeyCode == Keys.ShiftKey || e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin) return;
-                int mods = 0;
-                if (e.Control) mods |= (int)ModControl;
-                if (e.Alt) mods |= (int)ModAlt;
-                if (e.Shift) mods |= (int)ModShift;
-                if (mods == 0) { hotkeyStatusLabel.Text = "Сочетание должно включать Ctrl, Alt или Shift."; return; }
-                pendingHotkeyModifiers = mods;
-                pendingHotkeyKey = (int)e.KeyCode;
-                hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
-                hotkeyStatusLabel.Text = "Нажми «Сохранить сочетание», чтобы применить.";
-            };
-            saveHotkeyButton = Btn("Сохранить сочетание", 20, 192, 190, 36);
-            saveHotkeyButton.Click += (sender, e) => SaveHotkey();
-            resetHotkeyButton = Btn("По умолчанию", 220, 192, 150, 36);
-            resetHotkeyButton.Click += (sender, e) =>
-            {
-                pendingHotkeyModifiers = (int)(ModControl | ModAlt);
-                pendingHotkeyKey = (int)Keys.D;
-                hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
-                hotkeyStatusLabel.Text = "Выбрано Ctrl + Alt + D. Нажми «Сохранить сочетание».";
-            };
-            hotkeyStatusLabel = new Label { Text = "Текущее сочетание: " + FormatHotkey(activeHotkeyModifiers, activeHotkeyKey), Location = new Point(20, 246), Size = new Size(490, 48), ForeColor = ThemeSettings.Muted };
-            var note = new Label { Text = "Если сочетание занято, HasladDNS сообщит об этом и сохранит прежнее.\r\nИзменения сохраняются для следующих запусков.", Location = new Point(20, 304), Size = new Size(490, 44), ForeColor = ThemeSettings.Muted };
-            settingsTab.Controls.Add(heading);
-            settingsTab.Controls.Add(description);
-            settingsTab.Controls.Add(label);
-            settingsTab.Controls.Add(hotkeyBox);
-            settingsTab.Controls.Add(saveHotkeyButton);
-            settingsTab.Controls.Add(resetHotkeyButton);
-            settingsTab.Controls.Add(hotkeyStatusLabel);
-            settingsTab.Controls.Add(note);
-            ThemeSettings.Apply(settingsTab);
+                settingsDialog.Text = "HasladDNS — Настройки";
+                settingsDialog.StartPosition = FormStartPosition.CenterParent;
+                settingsDialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                settingsDialog.MaximizeBox = false;
+                settingsDialog.MinimizeBox = false;
+                settingsDialog.ClientSize = new Size(500, 370);
+                settingsDialog.Font = new Font("Segoe UI", 9F);
+                settingsDialog.BackColor = ThemeSettings.Background;
+                settingsDialog.ForeColor = ThemeSettings.Foreground;
+
+                var heading = new Label { Text = "Глобальная горячая клавиша", Font = new Font("Segoe UI", 14, FontStyle.Bold), Location = new Point(18, 20), AutoSize = true };
+                var description = new Label { Text = "Работает, даже когда HasladDNS свёрнут в системный трей.\r\nПереключает DNS так же, как основная кнопка приложения.", Location = new Point(20, 58), Size = new Size(460, 44), ForeColor = ThemeSettings.Muted };
+                var label = new Label { Text = "Сочетание клавиш", Location = new Point(20, 120), AutoSize = true };
+                hotkeyBox = new TextBox { Location = new Point(20, 146), Size = new Size(270, 30), ReadOnly = true, TabStop = true, Font = new Font("Segoe UI", 11F), Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey) };
+                hotkeyBox.Click += (sender, e) => { hotkeyStatusLabel.Text = "Нажми сочетание клавиш на клавиатуре."; hotkeyBox.Focus(); };
+                hotkeyBox.KeyDown += (sender, e) =>
+                {
+                    e.SuppressKeyPress = true; e.Handled = true;
+                    if (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.Menu || e.KeyCode == Keys.ShiftKey || e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin) return;
+                    int mods = 0;
+                    if (e.Control) mods |= (int)ModControl;
+                    if (e.Alt) mods |= (int)ModAlt;
+                    if (e.Shift) mods |= (int)ModShift;
+                    if (mods == 0) { hotkeyStatusLabel.Text = "Сочетание должно включать Ctrl, Alt или Shift."; return; }
+                    pendingHotkeyModifiers = mods;
+                    pendingHotkeyKey = (int)e.KeyCode;
+                    hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
+                    hotkeyStatusLabel.Text = "Нажми «Сохранить сочетание», чтобы применить.";
+                };
+                saveHotkeyButton = Btn("Сохранить сочетание", 20, 192, 190, 36);
+                saveHotkeyButton.Click += (sender, e) => SaveHotkey();
+                resetHotkeyButton = Btn("По умолчанию", 220, 192, 150, 36);
+                resetHotkeyButton.Click += (sender, e) =>
+                {
+                    pendingHotkeyModifiers = (int)(ModControl | ModAlt);
+                    pendingHotkeyKey = (int)Keys.D;
+                    hotkeyBox.Text = FormatHotkey(pendingHotkeyModifiers, pendingHotkeyKey);
+                    hotkeyStatusLabel.Text = "Выбрано Ctrl + Alt + D. Нажми «Сохранить сочетание».";
+                };
+                hotkeyStatusLabel = new Label { Text = "Текущее сочетание: " + FormatHotkey(activeHotkeyModifiers, activeHotkeyKey), Location = new Point(20, 246), Size = new Size(460, 48), ForeColor = ThemeSettings.Muted };
+                var note = new Label { Text = "Если сочетание занято, HasladDNS сообщит об этом и сохранит прежнее.\r\nИзменения сохраняются для следующих запусков.", Location = new Point(20, 304), Size = new Size(460, 44), ForeColor = ThemeSettings.Muted };
+                settingsDialog.Controls.Add(heading);
+                settingsDialog.Controls.Add(description);
+                settingsDialog.Controls.Add(label);
+                settingsDialog.Controls.Add(hotkeyBox);
+                settingsDialog.Controls.Add(saveHotkeyButton);
+                settingsDialog.Controls.Add(resetHotkeyButton);
+                settingsDialog.Controls.Add(hotkeyStatusLabel);
+                settingsDialog.Controls.Add(note);
+                ThemeSettings.Apply(settingsDialog);
+                settingsDialog.ShowDialog(this);
+            }
         }
 
         static string FormatHotkey(int modifiers, int key)
