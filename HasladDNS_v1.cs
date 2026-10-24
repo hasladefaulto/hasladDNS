@@ -686,7 +686,7 @@ namespace HbAiSmartDnsCustom
                             if (website.Length > 0 && (!Uri.TryCreate(website, UriKind.Absolute, out siteUri) ||
                                 (siteUri.Scheme != "http" && siteUri.Scheme != "https")))
                                 throw new Exception("Профиль «" + profile.Name + "» содержит небезопасный или некорректный URL.");
-                            valid.Add(new DnsProfile { Name=profile.Name.Trim(), Description=profile.Description ?? "", Website=website, Addresses=addresses });
+                            valid.Add(new DnsProfile { Name=profile.Name.Trim(), Description=profile.Description ?? "", Website=website, IsAi=profile.IsAi, Addresses=addresses });
                         }
                     }
                     if (valid.Count == 0) throw new Exception("В файле нет корректных DNS-профилей.");
@@ -985,7 +985,9 @@ namespace HbAiSmartDnsCustom
         {
             using (var d = new ProfileEditor(null)) if (d.ShowDialog(this)==DialogResult.OK) {
                 if (profiles.Any(p => String.Equals(p.Name,d.Result.Name,StringComparison.OrdinalIgnoreCase))) { MessageBox.Show("Профиль с таким названием уже существует."); return; }
-                profiles.Add(d.Result); SaveProfiles(); RefreshProfileBox(); profileBox.SelectedIndex=profiles.Count-1;
+                profiles.Add(d.Result); SaveProfiles(); RefreshProfileBox();
+                int addedIndex = profiles.FindIndex(p => String.Equals(p.Name, d.Result.Name, StringComparison.OrdinalIgnoreCase));
+                if (addedIndex >= 0) profileBox.SelectedIndex = addedIndex;
             }
         }
 
