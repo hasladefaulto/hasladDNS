@@ -27,9 +27,10 @@ namespace HbAiSmartDnsCustom
         public string Name { get; set; }
         public string Description { get; set; }
         public string Website { get; set; }
+        public bool IsAi { get; set; }
         [XmlArrayItem("Address")]
         public List<string> Addresses { get; set; }
-        public DnsProfile() { Name = ""; Description = ""; Website = ""; Addresses = new List<string>(); }
+        public DnsProfile() { Name = ""; Description = ""; Website = ""; IsAi = false; Addresses = new List<string>(); }
         public override string ToString() { return Name; }
     }
 
@@ -295,13 +296,14 @@ namespace HbAiSmartDnsCustom
     {
         public DnsProfile Result;
         TextBox nameBox, descBox, webBox, addrBox;
+        CheckBox aiBox;
         public ProfileEditor(DnsProfile initial)
         {
             Text = initial == null ? "Добавить профиль" : "Изменить профиль";
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false; MinimizeBox = false;
-            ClientSize = new Size(470, 390);
+            ClientSize = new Size(470, 420);
             BackColor = Color.FromArgb(18,18,26); ForeColor = Color.White;
             Font = new Font("Segoe UI", 9F);
             Label l1 = MakeLabel("Название профиля", 18, 18); Controls.Add(l1);
@@ -311,10 +313,12 @@ namespace HbAiSmartDnsCustom
             Label l3 = MakeLabel("Сайт (необязательно)", 18, 142); Controls.Add(l3);
             webBox = MakeText(18, 166, 430); Controls.Add(webBox);
             Label l4 = MakeLabel("IPv4 DNS-адреса — по одному на строку", 18, 204); Controls.Add(l4);
-            addrBox = new TextBox { Location = new Point(18,228), Size = new Size(430,90), Multiline=true, AcceptsReturn=true, ScrollBars=ScrollBars.Vertical, BackColor=Color.FromArgb(10,10,15), ForeColor=Color.White, BorderStyle=BorderStyle.FixedSingle };
+            addrBox = new TextBox { Location = new Point(18,228), Size = new Size(430,78), Multiline=true, AcceptsReturn=true, ScrollBars=ScrollBars.Vertical, BackColor=Color.FromArgb(10,10,15), ForeColor=Color.White, BorderStyle=BorderStyle.FixedSingle };
             Controls.Add(addrBox);
-            Button save = MakeButton("Сохранить", 250, 340, 95); save.Click += (s,e) => SaveProfile(); Controls.Add(save);
-            Button cancel = MakeButton("Отмена", 353, 340, 95); cancel.DialogResult = DialogResult.Cancel; Controls.Add(cancel);
+            aiBox = new CheckBox { Text="AI (профиль для сервисов искусственного интеллекта)", Location=new Point(18,314), Size=new Size(430,24), AutoSize=false, Checked=initial != null && initial.IsAi, ForeColor=Color.FromArgb(207,200,255) };
+            Controls.Add(aiBox);
+            Button save = MakeButton("Сохранить", 250, 370, 95); save.Click += (s,e) => SaveProfile(); Controls.Add(save);
+            Button cancel = MakeButton("Отмена", 353, 370, 95); cancel.DialogResult = DialogResult.Cancel; Controls.Add(cancel);
             // Do not bind Enter to Save: Enter must insert a new line in the multiline IPv4 field.
             AcceptButton = null; CancelButton = cancel;
             if (initial != null) {
@@ -346,7 +350,7 @@ namespace HbAiSmartDnsCustom
             if (site.Length > 0 && (!Uri.TryCreate(site, UriKind.Absolute, out uri) || (uri.Scheme != "http" && uri.Scheme != "https"))) {
                 MessageBox.Show("Сайт должен начинаться с http:// или https://"); return;
             }
-            Result = new DnsProfile { Name=name, Description=descBox.Text.Trim(), Website=site, Addresses=addresses };
+            Result = new DnsProfile { Name=name, Description=descBox.Text.Trim(), Website=site, IsAi=aiBox.Checked, Addresses=addresses };
             DialogResult = DialogResult.OK; Close();
         }
     }
@@ -903,15 +907,30 @@ namespace HbAiSmartDnsCustom
                 }
             } catch { profiles = null; }
             if (profiles == null || profiles.Count == 0) profiles = Defaults();
-            // Ensure all stored profiles are IPv4-only and well-formed.
+            // Ensure all stored profiles are IPv4-only and well-formed. Older XML files
+            // do not contain IsAi; XmlSerializer leaves that value false for compatibility.
             profiles = profiles.Where(p => p != null && !String.IsNullOrWhiteSpace(p.Name) && p.Addresses != null && p.Addresses.Count > 0)
-                .Select(p => new DnsProfile { Name=p.Name, Description=p.Description ?? "", Website=p.Website ?? "", Addresses=p.Addresses.Where(IsIPv4).Select(DnsEngine.Normalize).Distinct().ToList() })
+                .Select(p => new DnsProfile { Name=p.Name, Description=p.Description ?? "", Website=p.Website ?? "", IsAi=p.IsAi, Addresses=p.Addresses.Where(IsIPv4).Select(DnsEngine.Normalize).Distinct().ToList() })
                 .Where(p => p.Addresses.Count > 0).ToList();
             if (profiles.Count == 0) profiles = Defaults();
-            // Add newly shipped defaults to existing installations without overwriting user-edited profiles.
+            // Add newly shipped defaults without overwriting user-edited profiles.
             foreach (var builtIn in Defaults())
-                if (!profiles.Any(p => String.Equals(p.Name, builtIn.Name, StringComparison.OrdinalIgnoreCase)))
-                    profiles.Add(builtIn);
+            {
+                var existing = profiles.FirstOrDefault(p => String.Equals(p.Name, builtIn.Name, StringComparison.OrdinalIgnoreCase));
+                if (existing == null) profiles.Add(builtIn);
+                // Migrate the previous built-in MALW entry to the supplied server list,
+                // but only if it still has the old untouched default address.
+                else if (String.Equals(builtIn.Name, "MALW", StringComparison.OrdinalIgnoreCase) &&
+                    existing.Addresses.Count == 1 && String.Equals(existing.Addresses[0], "179.254.166.171", StringComparison.OrdinalIgnoreCase) &&
+                    String.Equals(existing.Description, "откл. геоблок по рф", StringComparison.OrdinalIgnoreCase))
+                {
+                    existing.Description = builtIn.Description;
+                    existing.Website = builtIn.Website;
+                    existing.Addresses = new List<string>(builtIn.Addresses);
+                    existing.IsAi = builtIn.IsAi;
+                }
+            }
+            profiles = profiles.OrderByDescending(p => p.IsAi).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
             SaveProfiles();
         }
 
@@ -923,9 +942,12 @@ namespace HbAiSmartDnsCustom
                 new DnsProfile { Name="GeoHide EU", Description="ChatGPT, Claude, Gemini, ElevenLabs", Website="https://geohide.ru/", Addresses=new List<string>{"143.20.64.192","45.13.237.213"} },
                 new DnsProfile { Name="Xbox DNS", Description="Xbox Live", Website="https://xbox-dns.ru/", Addresses=new List<string>{"111.88.96.54","111.88.96.55"} },
                 new DnsProfile { Name="Zapret", Description="AI", Website="https://dns.zapret.moe/#connect", Addresses=new List<string>{"83.217.211.149"} },
-                new DnsProfile { Name="Malw", Description="откл. геоблок по рф", Website="https://info.dns.malw.link/", Addresses=new List<string>{"179.254.166.171"} },
+                new DnsProfile { Name="MALW", Description="DNS сервис от MALW, работа на текущий момент не подтверждена", Website="https://info.dns.malw.link/", IsAi=true, Addresses=new List<string>{"179.254.166.171","164.5.224.81"} },
                 new DnsProfile { Name="bezmezhau", Description="беларусский dns", Website="https://bezmezhau.com/ru/", Addresses=new List<string>{"181.215.40.49","31.58.216.201"} },
-                new DnsProfile { Name="magicdns", Description="AI geoblock RU", Website="https://magicdns.ru", Addresses=new List<string>{"109.120.132.43","94.249.177.102"} }
+                new DnsProfile { Name="magicdns", Description="AI geoblock RU", Website="https://magicdns.ru", Addresses=new List<string>{"109.120.132.43","94.249.177.102"} },
+                new DnsProfile { Name="webshift", Description="DNS от квн-сервиса, скорее всего работает со всем. DoH endpoint (не применяется приложением): https://d.webshiftvpn.ru/dns-query", IsAi=true, Addresses=new List<string>{"31.31.207.68"} },
+                new DnsProfile { Name="Shecan.ir", Description="Бесплатный иранский DNS. Вроде, работает.", IsAi=true, Addresses=new List<string>{"178.22.122.100","185.51.200.2"} },
+                new DnsProfile { Name="Astracat", Description="Непроверенный DNS от квн-сервиса", IsAi=true, Addresses=new List<string>{"185.139.69.24","77.91.66.130"} }
             };
         }
 
@@ -940,12 +962,20 @@ namespace HbAiSmartDnsCustom
 
         void RefreshProfileBox()
         {
-            int old = profileBox.SelectedIndex;
+            string selectedName = profileBox.SelectedIndex >= 0 && profileBox.SelectedIndex < profiles.Count
+                ? profiles[profileBox.SelectedIndex].Name : null;
+            string activeName = activeProfile >= 0 && activeProfile < profiles.Count
+                ? profiles[activeProfile].Name : null;
+            profiles = profiles.OrderByDescending(p => p.IsAi).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            activeProfile = active && !String.IsNullOrEmpty(activeName)
+                ? profiles.FindIndex(p => String.Equals(p.Name, activeName, StringComparison.OrdinalIgnoreCase)) : -1;
             suppressProfileChange = true;
             profileBox.BeginUpdate();
             profileBox.Items.Clear();
-            foreach (var p in profiles) profileBox.Items.Add(p.Name);
-            if (profiles.Count > 0) profileBox.SelectedIndex = Math.Max(0, Math.Min(old, profiles.Count-1));
+            foreach (var p in profiles) profileBox.Items.Add((p.IsAi ? "[AI] " : "[No AI] ") + p.Name);
+            int selected = String.IsNullOrEmpty(selectedName)
+                ? -1 : profiles.FindIndex(p => String.Equals(p.Name, selectedName, StringComparison.OrdinalIgnoreCase));
+            if (profiles.Count > 0) profileBox.SelectedIndex = selected >= 0 ? selected : 0;
             profileBox.EndUpdate();
             suppressProfileChange = false;
             UpdateUi();
@@ -964,8 +994,12 @@ namespace HbAiSmartDnsCustom
             int i=profileBox.SelectedIndex; if (i<0) return;
             using (var d=new ProfileEditor(profiles[i])) if (d.ShowDialog(this)==DialogResult.OK) {
                 if (profiles.Where((p,n)=>n!=i).Any(p=>String.Equals(p.Name,d.Result.Name,StringComparison.OrdinalIgnoreCase))) { MessageBox.Show("Профиль с таким названием уже существует."); return; }
-                profiles[i]=d.Result; SaveProfiles(); RefreshProfileBox(); profileBox.SelectedIndex=i;
-                if (active && activeProfile==i) ApplyProfile(i);
+                bool wasActive = active && activeProfile == i;
+                profiles[i]=d.Result; SaveProfiles(); RefreshProfileBox();
+                if (wasActive) {
+                    activeProfile = profiles.FindIndex(p => String.Equals(p.Name, d.Result.Name, StringComparison.OrdinalIgnoreCase));
+                    if (activeProfile >= 0) ApplyProfile(activeProfile);
+                }
             }
         }
 
