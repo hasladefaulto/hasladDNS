@@ -287,6 +287,10 @@ namespace HbAiSmartDnsCustom
                 } else if (c is ListBox) {
                     c.BackColor = Input;
                     c.ForeColor = Foreground;
+                } else if (c is ComboBox) {
+                    c.BackColor = Input;
+                    c.ForeColor = Foreground;
+                    ((ComboBox)c).FlatStyle = FlatStyle.Flat;
                 } else if (c is Panel) {
                     c.BackColor = Surface;
                 }
@@ -379,7 +383,7 @@ namespace HbAiSmartDnsCustom
         bool dnsHealthUnavailable;
         bool healthCheckRunning;
         List<DnsProfile> profiles;
-        ListBox profileBox;
+        ComboBox profileBox;
         Label status, addressLabel, infoLabel;
         Button toggle, add, edit, remove, site, reload, themeButton, settingsButton, flushButton, lookupButton;
         TextBox hotkeyBox;
@@ -439,15 +443,24 @@ namespace HbAiSmartDnsCustom
 
             var profilesHeading = new Label { Text="DNS-ПРОФИЛИ", Font=new Font("Segoe UI",8.5F,FontStyle.Bold), ForeColor=ThemeSettings.Muted, Location=new Point(24,78), AutoSize=true };
             Controls.Add(profilesHeading);
-            profileBox = new ListBox {
-                Location=new Point(24,99), Size=new Size(521,108),
-                IntegralHeight=false, BorderStyle=BorderStyle.FixedSingle,
-                DrawMode=DrawMode.OwnerDrawFixed, ItemHeight=24,
+            profileBox = new ComboBox {
+                Location=new Point(24,99), Size=new Size(521,34),
+                DropDownStyle=ComboBoxStyle.DropDownList, IntegralHeight=true,
+                DrawMode=DrawMode.OwnerDrawFixed, ItemHeight=25,
                 BackColor=ThemeSettings.Input, ForeColor=ThemeSettings.Foreground,
-                Font=new Font("Segoe UI",9F), SelectionMode=SelectionMode.One
+                FlatStyle=FlatStyle.Flat, Font=new Font("Segoe UI",9.5F)
             };
+            profileBox.DropDownHeight = 260;
             profileBox.DrawItem += (s,e) => {
-                if (e.Index < 0 || e.Index >= profiles.Count) return;
+                if (e.Index < 0 || e.Index >= profiles.Count) {
+                    e.DrawBackground();
+                    if (profileBox.SelectedIndex >= 0 && profileBox.SelectedIndex < profiles.Count) {
+                        var chosen = profiles[profileBox.SelectedIndex];
+                        using (var brush = new SolidBrush(ThemeSettings.Foreground))
+                            e.Graphics.DrawString((chosen.IsAi ? "AI     " : "NO AI  ") + chosen.Name, Font, brush, e.Bounds.Left + 8, e.Bounds.Top + 4);
+                    }
+                    return;
+                }
                 bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
                 Color rowBack = selected ? ThemeSettings.Accent : ThemeSettings.Input;
                 using (var brush = new SolidBrush(rowBack)) e.Graphics.FillRectangle(brush, e.Bounds);
@@ -456,9 +469,9 @@ namespace HbAiSmartDnsCustom
                 string tag = profile.IsAi ? "AI" : "NO AI";
                 using (var tagBrush = new SolidBrush(tagColor))
                 using (var tagFont = new Font("Segoe UI", 8F, FontStyle.Bold))
-                    e.Graphics.DrawString(tag, tagFont, tagBrush, e.Bounds.Left + 9, e.Bounds.Top + 4);
+                    e.Graphics.DrawString(tag, tagFont, tagBrush, e.Bounds.Left + 9, e.Bounds.Top + 5);
                 using (var nameBrush = new SolidBrush(selected ? Color.White : ThemeSettings.Foreground))
-                    e.Graphics.DrawString(profile.Name, Font, nameBrush, e.Bounds.Left + 65, e.Bounds.Top + 3);
+                    e.Graphics.DrawString(profile.Name, Font, nameBrush, e.Bounds.Left + 65, e.Bounds.Top + 4);
                 if ((e.State & DrawItemState.Focus) == DrawItemState.Focus) e.DrawFocusRectangle();
             };
             profileBox.SelectedIndexChanged += (s,e) => {
