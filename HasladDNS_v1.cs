@@ -432,12 +432,12 @@ namespace HbAiSmartDnsCustom
             var subtitle = new Label { Text="Переключатель DNS · IPv4 only", ForeColor=ThemeSettings.Muted, Location=new Point(24,51), AutoSize=true };
             Controls.Add(subtitle);
 
-            settingsButton = Btn("⚙", 445, 20, 34, 34);
+            settingsButton = Btn("⚙", 405, 20, 36, 36);
             settingsButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Regular);
             settingsButton.AccessibleName = "Настройки";
             settingsButton.Click += (s,e) => OpenSettings();
             Controls.Add(settingsButton);
-            themeButton = Btn("Тёмная", 485, 20, 60, 34);
+            themeButton = Btn(ThemeSettings.Dark ? "Тёмная тема" : "Светлая тема", 449, 20, 103, 36);
             themeButton.Click += (s,e) => ToggleTheme();
             Controls.Add(themeButton);
 
@@ -490,7 +490,8 @@ namespace HbAiSmartDnsCustom
             reload = Btn("Обновить", 391, 215, 154, 32);
             reload.Click += (s,e) => RefreshState(); Controls.Add(reload);
 
-            var panel = new Panel { Location=new Point(24,261), Size=new Size(521,101), BackColor=ThemeSettings.Surface };
+            var panel = new Panel { Location=new Point(24,261), Size=new Size(521,101), BackColor=ThemeSettings.Surface, Padding=new Padding(1) };
+            panel.Paint += (s,e) => { using (var pen = new Pen(ThemeSettings.Border)) e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1); };
             Controls.Add(panel);
             status = new Label { Text="DNS выключен", Location=new Point(16,11), Size=new Size(485,28), Font=new Font("Segoe UI",14,FontStyle.Bold), ForeColor=ThemeSettings.Foreground };
             panel.Controls.Add(status);
@@ -960,7 +961,12 @@ namespace HbAiSmartDnsCustom
         }
 
         Button Btn(string text,int x,int y,int w,int h=32) {
-            return new Button { Text=text, Location=new Point(x,y), Size=new Size(w,h), FlatStyle=FlatStyle.Flat, BackColor=Color.FromArgb(124,92,255), ForeColor=Color.White, Cursor=Cursors.Hand };
+            var button = new Button { Text=text, Location=new Point(x,y), Size=new Size(w,h), FlatStyle=FlatStyle.Flat, BackColor=Color.FromArgb(124,92,255), ForeColor=Color.White, Cursor=Cursors.Hand, UseVisualStyleBackColor=false, TextImageRelation=TextImageRelation.Overlay, Padding=new Padding(8,3,8,3) };
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.BorderColor = Color.FromArgb(58,58,74);
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(143,116,255);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(104,76,224);
+            return button;
         }
 
         void LoadProfiles()
@@ -1154,7 +1160,7 @@ namespace HbAiSmartDnsCustom
         {
             if (status==null) return;
             ThemeSettings.Apply(this);
-            themeButton.Text = ThemeSettings.Dark ? "Тёмная" : "Светлая";
+            themeButton.Text = ThemeSettings.Dark ? "Тёмная тема" : "Светлая тема";
             status.Text = busy ? "Применяем настройки…" : active ? "DNS включён" : "DNS выключен";
             status.ForeColor = active ? (ThemeSettings.Dark ? yellow : Color.FromArgb(25,130,75)) : ThemeSettings.Foreground;
             if (errorText!=null) status.Text = "Ошибка применения DNS";
@@ -1166,7 +1172,9 @@ namespace HbAiSmartDnsCustom
             toggle.BackColor = active ? Color.FromArgb(190,72,72) : ThemeSettings.Accent;
             addressLabel.ForeColor = ThemeSettings.Dark ? yellow : Color.FromArgb(113,78,0);
             infoLabel.ForeColor = ThemeSettings.Muted;
-            themeButton.BackColor = ThemeSettings.Dark ? Color.FromArgb(55,55,70) : Color.FromArgb(225,230,242);
+            themeButton.BackColor = ThemeSettings.Dark ? Color.FromArgb(48,48,64) : Color.FromArgb(229,233,245);
+            themeButton.FlatAppearance.BorderColor = ThemeSettings.Border;
+            settingsButton.FlatAppearance.BorderColor = ThemeSettings.Border;
             themeButton.ForeColor = ThemeSettings.Dark ? Color.White : Color.FromArgb(40,45,65);
             foreach (Control c in Controls) if (c is Label && c.Text.StartsWith("Внимание:")) c.ForeColor = ThemeSettings.Dark ? yellow : Color.FromArgb(160,75,0);
             toggle.Enabled = !busy;
