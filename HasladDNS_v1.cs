@@ -416,7 +416,12 @@ namespace HbAiSmartDnsCustom
             UpdateUi();
             SetupTray();
             monitorTimer = new System.Windows.Forms.Timer { Interval = 5000 };
-            monitorTimer.Tick += (s,        void BuildUi()
+            monitorTimer.Tick += (s, e) => { RefreshCurrentDns(); CheckDnsHealth(); };
+            monitorTimer.Start();
+            RefreshCurrentDns();
+        }
+
+        void BuildUi()
         {
             var title = new Label { Text="HasladDNS", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=ThemeSettings.Foreground, Location=new Point(22,16), AutoSize=true };
             Controls.Add(title);
@@ -502,11 +507,6 @@ namespace HbAiSmartDnsCustom
             Controls.Add(note);
             if (!DnsEngine.IsAdmin()) {
                 var warn = new Label { Text="Внимание: запусти программу от имени администратора.", Location=new Point(25,628), AutoSize=true, ForeColor=Color.FromArgb(255,224,102) };
-                Controls.Add(warn);
-            }
-            RefreshProfileBox();
-        }
- AutoSize=true, ForeColor=yellow };
                 Controls.Add(warn);
             }
             RefreshProfileBox();
