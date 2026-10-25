@@ -372,7 +372,7 @@ namespace HbAiSmartDnsCustom
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
-        readonly Color bg = Color.FromArgb(7,7,11), violet = Color.FromArgb(140,112,255), yellow = Color.FromArgb(255,224,102), muted = Color.FromArgb(141,141,154);
+        readonly Color bg = Color.FromArgb(10,15,29), violet = Color.FromArgb(99,91,255), yellow = Color.FromArgb(255,224,102), muted = Color.FromArgb(141,155,177);
         readonly string dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HB AI Smart DNS");
         readonly string dataFile;
         readonly string settingsFile;
@@ -384,7 +384,7 @@ namespace HbAiSmartDnsCustom
         bool healthCheckRunning;
         List<DnsProfile> profiles;
         ComboBox profileBox;
-        Label status, addressLabel, infoLabel;
+        Label status, addressLabel, infoLabel, profileCountLabel;
         Button toggle, add, edit, remove, site, reload, themeButton, settingsButton, flushButton, lookupButton;
         TextBox hotkeyBox;
         Button saveHotkeyButton, resetHotkeyButton;
@@ -407,8 +407,8 @@ namespace HbAiSmartDnsCustom
             Text = "HasladDNS";
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(570, 690);
-            MinimumSize = new Size(570, 690); MaximumSize = new Size(570, 690);
+            ClientSize = new Size(600, 760);
+            MinimumSize = new Size(600, 760); MaximumSize = new Size(600, 760);
             Font = new Font("Segoe UI", 9F);
             ThemeSettings.Load(dataDir);
             BackColor = ThemeSettings.Background; ForeColor = ThemeSettings.Foreground;
@@ -427,24 +427,28 @@ namespace HbAiSmartDnsCustom
 
         void BuildUi()
         {
-            var title = new Label { Text="HasladDNS", Font=new Font("Segoe UI",18,FontStyle.Bold), ForeColor=ThemeSettings.Foreground, Location=new Point(22,16), AutoSize=true };
+            var title = new Label { Text="HasladDNS", Font=new Font("Segoe UI",20,FontStyle.Bold), ForeColor=ThemeSettings.Foreground, Location=new Point(24,18), AutoSize=true };
             Controls.Add(title);
-            var subtitle = new Label { Text="Переключатель DNS · IPv4 only", ForeColor=ThemeSettings.Muted, Location=new Point(24,51), AutoSize=true };
+            var version = new Label { Text="v1.3", Font=new Font("Consolas",9,FontStyle.Bold), ForeColor=ThemeSettings.Muted, BackColor=ThemeSettings.Surface, BorderStyle=BorderStyle.FixedSingle, Padding=new Padding(7,4,7,4), Location=new Point(160,25), AutoSize=true };
+            Controls.Add(version);
+            var subtitle = new Label { Text="Переключатель сетевых DNS-серверов  •  IPv4 only", ForeColor=ThemeSettings.Muted, Location=new Point(26,58), AutoSize=true };
             Controls.Add(subtitle);
 
-            settingsButton = Btn("⚙", 445, 20, 34, 34);
+            settingsButton = Btn("⚙", 472, 20, 34, 34);
             settingsButton.Font = new Font("Segoe UI Symbol", 15F, FontStyle.Regular);
             settingsButton.AccessibleName = "Настройки";
             settingsButton.Click += (s,e) => OpenSettings();
             Controls.Add(settingsButton);
-            themeButton = Btn("Тёмная", 485, 20, 60, 34);
+            themeButton = Btn("Тёмная", 512, 20, 64, 34);
             themeButton.Click += (s,e) => ToggleTheme();
             Controls.Add(themeButton);
 
-            var profilesHeading = new Label { Text="DNS-ПРОФИЛИ", Font=new Font("Segoe UI",8.5F,FontStyle.Bold), ForeColor=ThemeSettings.Muted, Location=new Point(24,78), AutoSize=true };
+            var profilesHeading = new Label { Text="DNS-ПРОФИЛИ", Font=new Font("Segoe UI",9F,FontStyle.Bold), ForeColor=ThemeSettings.Muted, Location=new Point(26,91), AutoSize=true };
             Controls.Add(profilesHeading);
+            profileCountLabel = new Label { Text="Всего: " + profiles.Count + " профилей", Font=new Font("Consolas",8.5F,FontStyle.Bold), ForeColor=ThemeSettings.Muted, Location=new Point(430,91), Size=new Size(146,18), TextAlign=ContentAlignment.MiddleRight };
+            Controls.Add(profileCountLabel);
             profileBox = new ComboBox {
-                Location=new Point(24,99), Size=new Size(521,34),
+                Location=new Point(26,116), Size=new Size(550,42),
                 DropDownStyle=ComboBoxStyle.DropDownList, IntegralHeight=true,
                 DrawMode=DrawMode.OwnerDrawFixed, ItemHeight=25,
                 BackColor=ThemeSettings.Input, ForeColor=ThemeSettings.Foreground,
@@ -481,45 +485,45 @@ namespace HbAiSmartDnsCustom
             };
             Controls.Add(profileBox);
 
-            add = Btn("+ Добавить", 24, 215, 126, 32);
+            add = Btn("+ Добавить", 26, 174, 132, 38);
             add.Click += (s,e) => AddProfile(); Controls.Add(add);
-            edit = Btn("Изменить", 158, 215, 112, 32);
+            edit = Btn("Изменить", 166, 174, 128, 38);
             edit.Click += (s,e) => EditProfile(); Controls.Add(edit);
-            remove = Btn("Удалить", 278, 215, 105, 32);
+            remove = Btn("Удалить", 302, 174, 124, 38);
             remove.Click += (s,e) => RemoveProfile(); Controls.Add(remove);
-            reload = Btn("Обновить", 391, 215, 154, 32);
+            reload = Btn("Обновить", 434, 174, 142, 38);
             reload.Click += (s,e) => RefreshState(); Controls.Add(reload);
 
-            var panel = new Panel { Location=new Point(24,261), Size=new Size(521,101), BackColor=ThemeSettings.Surface };
+            var panel = new Panel { Location=new Point(26,230), Size=new Size(550,142), BackColor=ThemeSettings.Surface };
             Controls.Add(panel);
-            status = new Label { Text="DNS выключен", Location=new Point(16,11), Size=new Size(485,28), Font=new Font("Segoe UI",14,FontStyle.Bold), ForeColor=ThemeSettings.Foreground };
+            status = new Label { Text="DNS выключен", Location=new Point(18,16), Size=new Size(500,30), Font=new Font("Segoe UI",15,FontStyle.Bold), ForeColor=ThemeSettings.Foreground };
             panel.Controls.Add(status);
-            addressLabel = new Label { Text="", Location=new Point(16,43), Size=new Size(485,23), ForeColor=ThemeSettings.Accent };
+            addressLabel = new Label { Text="", Location=new Point(18,53), Size=new Size(500,26), Font=new Font("Segoe UI",10F,FontStyle.Bold), ForeColor=ThemeSettings.Accent };
             panel.Controls.Add(addressLabel);
-            infoLabel = new Label { Text="", Location=new Point(16,69), Size=new Size(485,23), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
+            infoLabel = new Label { Text="", Location=new Point(18,86), Size=new Size(510,26), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
             panel.Controls.Add(infoLabel);
 
-            toggle = Btn("ВКЛ — применить профиль", 24, 375, 521, 52);
+            toggle = Btn("ВКЛ — применить профиль", 26, 388, 550, 58);
             toggle.Font = new Font("Segoe UI",11.5F,FontStyle.Bold);
             toggle.Click += (s,e) => Toggle(); Controls.Add(toggle);
-            site = Btn("Открыть сайт выбранного сервиса", 24, 438, 521, 36);
+            site = Btn("↗  Открыть сайт выбранного сервиса", 26, 458, 550, 42);
             site.Click += (s,e) => OpenSite(); Controls.Add(site);
 
-            currentDnsLabel = new Label { Text="Текущие IPv4 DNS: проверка…", Location=new Point(25,485), Size=new Size(520,39), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
+            currentDnsLabel = new Label { Text="Текущие IPv4 DNS: проверка…", Location=new Point(27,518), Size=new Size(548,42), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
             Controls.Add(currentDnsLabel);
-            flushButton = Btn("Очистить DNS-кэш", 24, 530, 250, 34);
+            flushButton = Btn("Очистить DNS-кэш", 26, 566, 266, 40);
             flushButton.Click += (s,e) => RunUtility(() => { DnsEngine.FlushCache(); return "DNS-кэш очищен."; });
             Controls.Add(flushButton);
-            lookupButton = Btn("Проверить домен (nslookup)", 285, 530, 260, 34);
+            lookupButton = Btn("Проверить домен (nslookup)", 302, 566, 274, 40);
             lookupButton.Click += (s,e) => RunNslookup(); Controls.Add(lookupButton);
 
             var note = new Label {
                 Text="DNS проверяется каждые 5 секунд. Свернуть окно — в трей; там доступны быстрые переключения. IPv6 не изменяется.",
-                Location=new Point(25,576), Size=new Size(520,42), ForeColor=ThemeSettings.Muted
+                Location=new Point(27,626), Size=new Size(548,46), ForeColor=ThemeSettings.Muted
             };
             Controls.Add(note);
             if (!DnsEngine.IsAdmin()) {
-                var warn = new Label { Text="Внимание: запусти программу от имени администратора.", Location=new Point(25,628), AutoSize=true, ForeColor=Color.FromArgb(255,224,102) };
+                var warn = new Label { Text="Внимание: запусти программу от имени администратора.", Location=new Point(27,684), AutoSize=true, ForeColor=Color.FromArgb(255,224,102) };
                 Controls.Add(warn);
             }
             RefreshProfileBox();
@@ -996,6 +1000,7 @@ namespace HbAiSmartDnsCustom
                 }
             }
             profiles = profiles.OrderByDescending(p => p.IsAi).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            if (profileCountLabel != null) profileCountLabel.Text = "Всего: " + profiles.Count + " профилей";
             SaveProfiles();
         }
 
