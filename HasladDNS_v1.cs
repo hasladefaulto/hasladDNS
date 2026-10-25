@@ -253,14 +253,14 @@ namespace HbAiSmartDnsCustom
             } catch { }
         }
 
-        public static Color Background { get { return Dark ? Color.FromArgb(12,12,17) : Color.FromArgb(244,246,250); } }
-        public static Color Surface { get { return Dark ? Color.FromArgb(23,23,32) : Color.FromArgb(255,255,255); } }
-        public static Color Input { get { return Dark ? Color.FromArgb(10,10,15) : Color.FromArgb(255,255,255); } }
-        public static Color Foreground { get { return Dark ? Color.FromArgb(242,242,248) : Color.FromArgb(32,36,46); } }
-        public static Color Muted { get { return Dark ? Color.FromArgb(155,155,170) : Color.FromArgb(94,101,116); } }
-        public static Color Accent { get { return Dark ? Color.FromArgb(124,92,255) : Color.FromArgb(78,91,210); } }
+        public static Color Background { get { return Dark ? Color.FromArgb(11,17,32) : Color.FromArgb(244,247,252); } }
+        public static Color Surface { get { return Dark ? Color.FromArgb(17,26,45) : Color.FromArgb(255,255,255); } }
+        public static Color Input { get { return Dark ? Color.FromArgb(29,41,61) : Color.FromArgb(255,255,255); } }
+        public static Color Foreground { get { return Dark ? Color.FromArgb(239,243,251) : Color.FromArgb(32,39,54); } }
+        public static Color Muted { get { return Dark ? Color.FromArgb(145,160,183) : Color.FromArgb(94,105,123); } }
+        public static Color Accent { get { return Dark ? Color.FromArgb(91,79,245) : Color.FromArgb(78,91,210); } }
         public static Color AccentText { get { return Color.White; } }
-        public static Color Border { get { return Dark ? Color.FromArgb(65,65,78) : Color.FromArgb(205,211,223); } }
+        public static Color Border { get { return Dark ? Color.FromArgb(43,57,79) : Color.FromArgb(205,211,223); } }
 
         public static void Apply(Control root)
         {
