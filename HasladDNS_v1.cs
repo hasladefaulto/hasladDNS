@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -498,22 +499,36 @@ namespace HbAiSmartDnsCustom
             reload.Click += (s,e) => RefreshState(); Controls.Add(reload);
 
             var panel = new Panel { Location=new Point(26,234), Size=new Size(570,146), BackColor=ThemeSettings.Surface, Padding=new Padding(1) };
-            panel.Paint += (s,e) => { using (var pen = new Pen(ThemeSettings.Border)) e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1); };
+            panel.Paint += (s,e) => {
+                var bounds = new Rectangle(0, 0, panel.Width - 1, panel.Height - 1);
+                Color top = ThemeSettings.Dark ? Color.FromArgb(20, 47, 49) : Color.FromArgb(231, 247, 240);
+                Color bottom = ThemeSettings.Dark ? ThemeSettings.Surface : Color.FromArgb(248, 250, 252);
+                using (var brush = new LinearGradientBrush(bounds, top, bottom, LinearGradientMode.Vertical))
+                    e.Graphics.FillRectangle(brush, bounds);
+                using (var pen = new Pen(active ? Color.FromArgb(54, 160, 125) : ThemeSettings.Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+                using (var pen = new Pen(ThemeSettings.Dark ? Color.FromArgb(34, 75, 72) : Color.FromArgb(211, 231, 224)))
+                    e.Graphics.DrawLine(pen, 16, panel.Height - 1, panel.Width - 17, panel.Height - 1);
+            };
             Controls.Add(panel);
             status = new Label { Text="DNS выключен", Location=new Point(18,16), Size=new Size(530,30), Font=new Font("Segoe UI",16,FontStyle.Bold), ForeColor=ThemeSettings.Foreground };
             panel.Controls.Add(status);
-            addressLabel = new Label { Text="", Location=new Point(18,53), Size=new Size(530,26), Font=new Font("Segoe UI",10.5F,FontStyle.Bold), ForeColor=ThemeSettings.Accent };
+            addressLabel = new Label { Text="", Location=new Point(18,53), Size=new Size(530,26), Font=new Font("Consolas",10F,FontStyle.Bold), ForeColor=ThemeSettings.Accent };
             panel.Controls.Add(addressLabel);
-            infoLabel = new Label { Text="", Location=new Point(18,86), Size=new Size(510,26), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
+            infoLabel = new Label { Text="", Location=new Point(18,86), Size=new Size(510,34), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
             panel.Controls.Add(infoLabel);
 
             toggle = Btn("ВКЛ — применить профиль", 26, 396, 570, 60);
             toggle.Font = new Font("Segoe UI",11.5F,FontStyle.Bold);
+            toggle.FlatAppearance.BorderSize = 0;
             toggle.Click += (s,e) => Toggle(); Controls.Add(toggle);
             site = Btn("↗  Открыть сайт выбранного сервиса", 26, 466, 570, 44);
+            site.BackColor = ThemeSettings.Surface;
+            site.ForeColor = ThemeSettings.Foreground;
+            site.FlatAppearance.BorderColor = ThemeSettings.Border;
             site.Click += (s,e) => OpenSite(); Controls.Add(site);
 
-            currentDnsLabel = new Label { Text="Текущие IPv4 DNS: проверка…", Location=new Point(27,526), Size=new Size(568,42), ForeColor=ThemeSettings.Muted, AutoEllipsis=true };
+            currentDnsLabel = new Label { Text="ТЕКУЩИЕ IPv4 DNS: проверка…", Location=new Point(27,526), Size=new Size(568,42), ForeColor=ThemeSettings.Muted, AutoEllipsis=true, Font=new Font("Segoe UI",9F,FontStyle.Regular), Padding=new Padding(0,4,0,0) };
             Controls.Add(currentDnsLabel);
             flushButton = Btn("Очистить DNS-кэш", 26, 574, 278, 42);
             flushButton.Click += (s,e) => RunUtility(() => { DnsEngine.FlushCache(); return "DNS-кэш очищен."; });
@@ -1165,6 +1180,7 @@ namespace HbAiSmartDnsCustom
             ThemeSettings.Apply(this);
             themeButton.Text = ThemeSettings.Dark ? "Тёмная" : "Светлая";
             status.Text = busy ? "Применяем настройки…" : active ? "DNS включён" : "DNS выключен";
+            if (status.Parent != null) status.Parent.Invalidate();
             status.ForeColor = active ? (ThemeSettings.Dark ? yellow : Color.FromArgb(25,130,75)) : ThemeSettings.Foreground;
             if (errorText!=null) status.Text = "Ошибка применения DNS";
             int i=profileBox.SelectedIndex;
@@ -1173,6 +1189,8 @@ namespace HbAiSmartDnsCustom
             infoLabel.Text = p==null ? "" : p.Description;
             toggle.Text = busy ? "ПОДОЖДИТЕ…" : active ? "ВЫКЛ — вернуть автоматический DNS" : "ВКЛ — применить профиль";
             toggle.BackColor = active ? Color.FromArgb(190,72,72) : ThemeSettings.Accent;
+            toggle.FlatAppearance.MouseOverBackColor = active ? Color.FromArgb(210,82,82) : Color.FromArgb(79,70,229);
+            toggle.FlatAppearance.MouseDownBackColor = active ? Color.FromArgb(160,58,58) : Color.FromArgb(67,56,202);
             addressLabel.ForeColor = ThemeSettings.Dark ? yellow : Color.FromArgb(113,78,0);
             infoLabel.ForeColor = ThemeSettings.Muted;
             themeButton.BackColor = ThemeSettings.Dark ? Color.FromArgb(55,55,70) : Color.FromArgb(225,230,242);
